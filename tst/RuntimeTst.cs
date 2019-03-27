@@ -97,7 +97,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public void BasicRuntimeTest() {
-      var rt= new JobCntrlRuntime(new TestConfigLoader(), AppGlobals.Logger<JobCntrlRuntime>());
+      var rt= new JobCntrlRuntime(new TestConfigLoader(), App.Logger<JobCntrlRuntime>());
       Assert.Throws<InvalidOperationException>(() => rt.Start());
       rt.Init();
       Assert.Throws<InvalidOperationException>(() => rt.Init());
@@ -109,7 +109,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public void StartedRuntimeTest() {
-      var actComplete= new Misc.SyncMonitor<bool>();
+      var actComplete= new Tlabs.Sync.SyncMonitor<bool>();
       int completionCnt= 0;
       var starterCompletion= new TestStarterCompletion();
       starterCompletion.CompletionInfoPersisted+= (p, compl, o) => {
@@ -123,7 +123,7 @@ namespace Tlabs.JobCntrl.Test {
         if (++completionCnt > 1)
           actComplete.SignalPermanent(true);
       };
-      var rt= new JobCntrlRuntime(new TestConfigLoader(), starterCompletion, AppGlobals.Logger<JobCntrlRuntime>());
+      var rt= new JobCntrlRuntime(new TestConfigLoader(), starterCompletion, App.Logger<JobCntrlRuntime>());
       rt.Init();
       rt.Start();
 

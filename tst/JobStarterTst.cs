@@ -159,7 +159,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public void JobStartTest() {
-      var actComplete= new Misc.SyncMonitor<bool>();
+      var actComplete= new Tlabs.Sync.SyncMonitor<bool>();
 
       var masterStarter= new MasterStarter("0", "0", typeof(TestStarterImpl), null);
       IRuntimeStarter runtimeStarter= (IRuntimeStarter)masterStarter.CreateRuntimeStarter("tstRuntimeJobStarter", masterStarter.Description, null);
