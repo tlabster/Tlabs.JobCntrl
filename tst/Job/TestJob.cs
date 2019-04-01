@@ -31,6 +31,9 @@ namespace Tlabs.JobCntrl.Test.Job {
       Log.InfoFormat("Waiting for {0:D}ms", msec);
       Thread.Sleep(msec);
 
+      if (PropertyBool("throw", false))
+        throw new ApplicationException("Property: 'throw' == true");
+
       Log.ProcessStep= "TERM";
       return CreateResult(resObj, "OK");
     }

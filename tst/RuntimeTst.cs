@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Xunit;
+using Xunit.Abstractions;
 
 using Tlabs.JobCntrl.Intern;
 using Tlabs.JobCntrl.Model;
@@ -14,10 +15,12 @@ namespace Tlabs.JobCntrl.Test {
 
   [Collection("AppTimeScope")]
   public class RuntimeTst {
-    private AppTimeEnvironment appTimeEnv;
+    ITestOutputHelper tstout;
+    AppTimeEnvironment appTimeEnv;
 
-    public RuntimeTst(AppTimeEnvironment appTimeEnv) {
+    public RuntimeTst(AppTimeEnvironment appTimeEnv, ITestOutputHelper tstout) {
       this.appTimeEnv= appTimeEnv;
+      this.tstout= tstout;
     }
 
     class TestMasterCfg : IMasterCfg {
@@ -73,6 +76,9 @@ namespace Tlabs.JobCntrl.Test {
           ["max-Wait"]= 1300
         }),
         new JobCfg("TEST", "Job2.1", "ChainedStarter", "Stage-2 / Job-1", null ),
+        new JobCfg("TEST", "Job2.2", "ChainedStarter", "Stage-2 / Job-2", new ConfigProperties {
+          ["throw"]= true
+        }),
       };
       public TestJobCntrlCfg(IMasterCfg masterCfg) { this.masterModels= masterCfg; }
       public IMasterCfg MasterModels => masterModels;
@@ -113,12 +119,12 @@ namespace Tlabs.JobCntrl.Test {
       int completionCnt= 0;
       var starterCompletion= new TestStarterCompletion();
       starterCompletion.CompletionInfoPersisted+= (p, compl, o) => {
-        Console.WriteLine($"Starter '{compl.StarterName}' completed running jobs:");
+        tstout.WriteLine($"Starter '{compl.StarterName}' completed running jobs:");
         foreach(var res in compl.JobResults) {
-          Console.WriteLine($"\tJob '{res.JobName}' ({res.Message})");
-          Assert.True(res.IsSuccessful);
+          tstout.WriteLine($"\tJob '{res.JobName}' ({res.Message})");
+          Assert.Equal(res.JobName != "Job2.2", res.IsSuccessful);
           foreach(var ent in res.ProcessingLog.Entries)
-            Console.WriteLine($"\t\tStep: {ent.ProcessStep}");
+            tstout.WriteLine($"\t\tStep: {ent.ProcessStep}");
         }
         if (++completionCnt > 1)
           actComplete.SignalPermanent(true);

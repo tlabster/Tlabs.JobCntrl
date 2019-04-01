@@ -102,7 +102,7 @@ namespace Tlabs.JobCntrl.Test {
         {"Inst.Prop", "xx"}
       };
       runtimeStarter= (IRuntimeStarter)masterStarter.CreateRuntimeStarter("tstRuntimeStarter", masterStarter.Description, starterRunProps);
-      Assert.IsNotType(typeof(TestStarterImpl), runtimeStarter);
+      Assert.IsNotType<TestStarterImpl>(runtimeStarter);
       Assert.Equal(1, starterInitCnt);//, "MasterStarter must have created target Starter with CreateRuntimeStarter()");
       Assert.True(runtimeStarter.Properties.ContainsKey(MasterStarter.PROP_RUNTIME));//, "expected PROP_RUNTIME");
       Assert.Equal(starterRunProps.Count + masterProps.Count + 1, runtimeStarter.Properties.Count);
