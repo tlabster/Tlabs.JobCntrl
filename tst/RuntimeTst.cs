@@ -123,7 +123,7 @@ namespace Tlabs.JobCntrl.Test {
         foreach(var res in compl.JobResults) {
           tstout.WriteLine($"\tJob '{res.JobName}' ({res.Message})");
           Assert.Equal(res.JobName != "Job2.2", res.IsSuccessful);
-          foreach(var ent in res.ProcessingLog.Entries)
+          if (null != res.ProcessingLog) foreach(var ent in res.ProcessingLog.Entries)
             tstout.WriteLine($"\t\tStep: {ent.ProcessStep}");
         }
         if (++completionCnt > 1)

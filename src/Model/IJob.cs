@@ -120,22 +120,19 @@ namespace Tlabs.JobCntrl.Model {
 
     /// <summary>Create a <see cref="IJobResult"/> with the success status.</summary>
     protected IJobResult CreateResult(bool success) {
-      return new Intern.JobResult(this, success);
-    }
-
-    /// <summary>Create a <see cref="IJobResult"/> with the success status and message.</summary>
-    protected IJobResult CreateResult(bool success, string message) {
-      return new Intern.JobResult(this, success, message);
+      return new Intern.JobResult(this.Name, success, this.log.Log);
     }
 
     /// <summary>Create a <see cref="IJobResult"/> with <paramref name="resultObjs"/> and message.</summary>
     protected IJobResult CreateResult(IDictionary<string, object> resultObjs, string message) {
-      return new Intern.JobResult(this, resultObjs.AsReadOnly(), message);
+      return new Intern.JobResult(this.Name, resultObjs.AsReadOnly(), message, this.log.Log);
     }
 
     /// <summary>Create a <see cref="IJobResult"/> from exception.</summary>
     protected IJobResult CreateResult(Exception e) {
-      return new Intern.JobResult(this, e);
+      this.log.ProblemFormat("Job aborted: {0}", e.Message);
+      this.log.ProcessStep= "ABORT";
+      return new Intern.JobResult(this.Name, e, this.log.Log);
     }
 
     /// <summary>Create a <see cref="IJobLogger"/> implementation.</summary>

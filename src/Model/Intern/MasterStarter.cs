@@ -48,10 +48,11 @@ namespace Tlabs.JobCntrl.Model.Intern {
     /// <summary>Ctor.</summary>
     /// <param name="name">unique master starter name</param>
     /// <param name="description">description string</param>
-    /// <param name="operationType">Target <see cref="IStarter"/> instance type</param>
+    /// <param name="starterType">Target <see cref="IStarter"/> instance type</param>
     /// <param name="properties">Master starter configuration parameters</param>
-    public MasterStarter(string name, string description, Type operationType, IProps properties)
-      : base(name, description, operationType, properties) { }
+    public MasterStarter(string name, string description, Type starterType, IProps properties) : base(name, description, starterType, properties) {
+      if (null == starterType.GetConstructor(Type.EmptyTypes)) throw new ArgumentException("No public default ctor in start type: " + starterType.AssemblyQualifiedName);      
+    }
 
     /// <summary>Create a <see cref="IStarter"/> runtime instance.</summary>
     /// <param name="name">Starter's runtime name</param>
@@ -122,7 +123,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
       public IStarter Initialize(string name, string description, IProps properties) {
         /* Create a targetStarter instance from masterStarter:
          */
-        targetStarter= (IStarter)this.masterStarter.typeCtor.Invoke(null);
+        targetStarter= (IStarter)Activator.CreateInstance(this.masterStarter.targetType);
         var props= new ConfigProperties(masterStarter.Properties, properties);
         props[PROP_RUNTIME]= runtimeProx;
         targetStarter= targetStarter.Initialize(name, description, props.AsReadOnly());

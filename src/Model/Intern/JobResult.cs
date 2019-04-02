@@ -22,41 +22,22 @@ namespace Tlabs.JobCntrl.Model.Intern {
     private bool success;
     private ILog log;
 
-    public JobResult(string name, bool success) {
+    public JobResult(string name, bool success, ILog log= null) {
       this.jobName= name;
       this.IsSuccessful= success;
+      this.log= log;
     }
 
-    public JobResult(IJob operation, Exception e) : this(operation, false) {
+    public JobResult(string name, string message= null, ILog log= null) : this(name, true, log) {
+      this.message= message ?? this.message;
+    }
+    public JobResult(string name, Exception e, ILog log= null) : this(name, false, log) {
       this.message= e.ToString();
     }
 
-    public JobResult(IJob operation, bool success, string message) : this(operation.Name, success) {
-      if (null != message || null == this.message)
-        this.message= message;
-    }
-
-    public JobResult(IJob operation, IReadOnlyDictionary<string, object> resultObjs, string message) : this(operation.Name, null != resultObjs) {
+    public JobResult(string name, IReadOnlyDictionary<string, object> resultObjs, string message, ILog log= null) : this(name, message, log) {
       this.resultObjs= resultObjs;
-      if (null != message || null == this.message)
-        this.message= message;
     }
-
-    public JobResult(IJob operation, bool success) : this(operation.Name, success) {
-      var op= operation as BaseJob;
-      if(null != op)
-        this.log= op.Log.Log;
-    }
-
-    public JobResult(BaseJob operation, bool success, string message) : this((IJob)operation, success, message) {
-      this.log= operation.Log.Log;
-    }
-
-    public JobResult(BaseJob operation, IReadOnlyDictionary<string, object> resultObjs, string message) : this((IJob)operation, resultObjs, message) {
-      this.log= operation.Log.Log;
-    }
-
-    public JobResult(BaseJob operation, Exception e) : this(operation, false, e.ToString()) { }
 
     public string JobName {
       get { return jobName; }

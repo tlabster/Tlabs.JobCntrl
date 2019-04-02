@@ -81,40 +81,28 @@ namespace Tlabs.JobCntrl.Model.Intern {
         MasterJob.Log.LogInformation("Executing job '{JP}' (activated from starter '{ST}').", this.Name, srcStarter.Name);
 
         var jobStarter= (IStarterActivation)srcStarter;   //must be activated from starter
-        var targetJob= CreateTargetJob();
         
-        Task<IJobResult>.Run(() => targetJob.Run(runProps)) // async. run targetJob
-                        .ContinueWith(jobTsk => {           // and continue with job result
+        Tlabs.App.RunBackgroundService<IJob, IJobResult>(masterJob.targetType, job => {
+          job= job.Initialize(this.Name, this.Description, this.Properties);
+          return job.Run(runProps);
+        })
+        .ContinueWith(jobTsk => {           // and continue with job result
           IJobResult jobResult;
-          try {
-            try {jobResult= jobTsk.Result; }   // obtain job result from task
-            catch (AggregateException ae) {
-              jobResult= new JobResult(targetJob, ae.InnerException);
-            }
-            Log.LogInformation("Job '{J}' {RES1}.", jobResult.JobName, jobResult.IsSuccessful ? "finished successfully" : "failed");
-            if (!jobResult.IsSuccessful) {
-              Log.LogError("Message from '{JP}': {MSG}", jobResult.JobName, jobResult.Message);
-              var procLog= jobResult.ProcessingLog;
-              if (null != procLog) foreach (var log in procLog.Entries) //push job log to global log
-                Log.LogError("{TM} {STEP}> {MSG}", string.Format("{0:D3} {1:HH:mm:ss,FFF}", log.ElapsedMsec, procLog.EntryTime(log)), log.ProcessStep, log.Message);
-            }
+          try {jobResult= jobTsk.Result; }   // obtain job result from task
+          catch (AggregateException ae) {
+            jobResult= new JobResult(this.Name, ae.InnerException);
           }
-          finally {
-            try { targetJob.Dispose(); }
-            catch (Exception e) when ( e.LogWarn(Log, "Problem disposing {Job}", this.Name) || NoDisastrousCondition(e)) { }  // Do not throw from dispose!
+          Log.LogInformation("Job '{J}' {RES1}.", jobResult.JobName, jobResult.IsSuccessful ? "finished successfully" : "failed");
+          if (!jobResult.IsSuccessful) {
+            Log.LogError("Message from '{JP}': {MSG}", jobResult.JobName, jobResult.Message);
+            var procLog= jobResult.ProcessingLog;
+            if (null != procLog) foreach (var log in procLog.Entries) //push job log to global log
+              Log.LogError("{TM} {STEP}> {MSG}", string.Format("{0:D3} {1:HH:mm:ss,FFF}", log.ElapsedMsec, procLog.EntryTime(log)), log.ProcessStep, log.Message);
           }
           jobStarter.AddResult(jobResult);
         });
 
       }//HandleStarterInvocation
-
-      private IJob CreateTargetJob() {
-        try {
-          return ((IJob)masterJob.typeCtor.Invoke(null))
-                                          .Initialize(this.Name, this.Description, this.Properties);
-        }
-        catch (Exception e) when (e.LogError(Log, "Failed to create job: {job}", this.Name)) { throw e; }
-      }
 
     }//class RuntimeJob
 

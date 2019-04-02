@@ -168,17 +168,17 @@ namespace Tlabs.JobCntrl.Test {
       Assert.Equal(0, this.jobDisposeCnt);
 
       runtimeStarter.ActivationComplete+= compl => {
-
-        Assert.Equal("tstRuntimeJobStarter", compl.StarterName);
-        Assert.Equal(1, this.jobInitCnt);
-        Assert.Equal(1, this.jobRunCnt);
-        Assert.Equal(1, this.jobDisposeCnt);
-        Assert.NotEmpty(compl.JobResults);
-        foreach(var res in compl.JobResults)
-          Assert.True(res.IsSuccessful);
-        ++this.starterCompletionCnt;
-
-        actComplete.SignalPermanent(true);
+        try {
+          Assert.Equal("tstRuntimeJobStarter", compl.StarterName);
+          Assert.Equal(1, this.jobInitCnt);
+          Assert.Equal(1, this.jobRunCnt);
+          Assert.Equal(1, this.jobDisposeCnt);
+          Assert.NotEmpty(compl.JobResults);
+          foreach(var res in compl.JobResults)
+            Assert.True(res.IsSuccessful);
+          ++this.starterCompletionCnt;
+        }
+        finally { actComplete.SignalPermanent(true); }
       };
 
       runtimeStarter.DoActivate(runProps);
