@@ -32,7 +32,7 @@ namespace Tlabs.JobCntrl.Test.Job {
       Thread.Sleep(msec);
 
       if (PropertyBool("throw", false))
-        throw new ApplicationException("Property: 'throw' == true");
+        throw new ApplicationException("NO PROBLEM! Test throw because of property: 'throw' == true");
 
       Log.ProcessStep= "TERM";
       return CreateResult(resObj, "OK");
