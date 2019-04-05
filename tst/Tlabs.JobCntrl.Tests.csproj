@@ -11,6 +11,7 @@
     <ProjectReference Include="../src/Tlabs.JobCntrl.csproj" />
 
     <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest"/>
+    <Content Include="JobCntrlConfig.json" CopyToOutputDirectory="PreserveNewest"/>
   </ItemGroup>
 
   <ItemGroup>

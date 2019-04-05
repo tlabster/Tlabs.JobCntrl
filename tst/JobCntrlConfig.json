@@ -1,0 +1,69 @@
+﻿// JobCntrlConfig
+{
+  "MasterCfg": {
+    "Starters": [{
+      "Name": "MANUAL", "Description": "Manual (programatic) activation only",
+      "Type": "Tlabs.JobCntrl.Model.Intern.Starter.Manual, Tlabs.JobCntrl"
+    }, {
+      "Name": "SCHEDULE", "Description": "Time scheduled starter activation.",
+      "Type": "Tlabs.JobCntrl.Model.Intern.Starter.TimeSchedule, Tlabs.JobCntrl",
+      "Properties": { }
+    }, {
+      "Name": "MESSAGE", "Description": "Message activated starter.",
+      "Type": "Tlabs.JobCntrl.Model.Intern.Starter.MessageSubscription, Tlabs.JobCntrl",
+      "Properties": { }
+    }, {
+      "Name": "CHAINED", "Description": "Chained activation after completion of previous starter.",
+      "Type": "Tlabs.JobCntrl.Model.Intern.Starter.Chained, Tlabs.JobCntrl",
+      "Properties": { }
+    }],
+
+    "Jobs": [
+      {
+        "Name": "TEST", "Description": "Test Job", "Type": "Tlabs.JobCntrl.Test.Job.TestJob, Tlabs.JobCntrl.Tests",
+      }
+    ]
+  },
+
+  "ControlCfg": {
+    "Starters": [{
+      "Name": "ManualStart", "Master": "MANUAL"
+    }, {
+      "Name": "MessageStarter", "Master": "MESSAGE",
+      "Properties": {
+        "Message-Subject": "test.subject"
+      }
+    }, {
+      "Name": "ChainedStart", "Master": "CHAINED",
+      "Properties": {
+        "Completed-Starter": "ManualStarter"
+      }
+    }],
+
+    "Jobs": [{
+      "Name": "Job1.1", "Description": "Stage-1 / Job-1",
+      "Master": "TEST",
+      "Starter": "ManualStarter"
+    }, {
+      "Name": "Job1.2", "Description": "Stage-1 / Job-2",
+      "Master": "TEST",
+      "Starter": "ManualStarter",
+      "Properties": {
+        "min-Wait": 900,
+        "max-Wait": 1300
+      }
+    }, {
+      "Name": "Job2.1", "Description": "Stage-2 / Job-1",
+      "Master": "TEST",
+      "Starter": "ChainedStarter"
+    }, {
+      "Name": "Job2.2", "Description": "Stage-2 / Job-2",
+      "Master": "TEST",
+      "Starter": "ChainedStarter",
+      "Properties": {
+        "throw": true
+      }
+    }]
+
+  }
+}
