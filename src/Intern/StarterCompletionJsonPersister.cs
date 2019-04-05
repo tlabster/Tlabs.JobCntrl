@@ -56,31 +56,12 @@ namespace Tlabs.JobCntrl.Intern {
     private FileInfo SerializeStarterCompletion(Model.Intern.IStarterCompletion starterCompletion) {
       var logFile= BuildFileInfo(starterCompletion.StarterName);
       var json= JsonFormat.CreateDynSerializer();
-
-      json.WriteObj(new FileStream(logFile.FullName, FileMode.Create), buildStarterCompletion(starterCompletion));
-
-      // FileStream fstrm= null;
-      // try {
-      //   using (var strm = new StreamWriter(fstrm= new FileStream(logFile.FullName, FileMode.Create), Encoding.UTF8)) {
-      //     fstrm= null;
-      //     strm.WriteLine('{');
-
-      //     strm.Write("Starter: "); JsonString.Write(strm, starterCompletion.StarterName).WriteLine(',');
-      //     strm.Write("Time: "); JsonString.Write(strm, starterCompletion.Time).WriteLine(',');
-      //     strm.WriteLine("JobResults: [");
-      //     bool first= true;
-      //     foreach (var agRes in starterCompletion.JobResults) {
-      //       if (!first) strm.WriteLine(',');
-      //       first= false;
-      //       SerializeJobResult(strm, agRes);
-      //     }
-      //     strm.WriteLine();
-
-      //     strm.WriteLine(']');  //JobResults
-      //     strm.WriteLine('}');
-      //   }
-      // }
-      // finally { if (null != fstrm) fstrm.Dispose(); }
+      using (var strm= File.Open(logFile.FullName, FileMode.Append)) {
+        json.WriteObj(strm, buildStarterCompletion(starterCompletion));
+        using (var wr= new StreamWriter(strm)) {
+          wr.WriteLine(",\f");
+        }
+      }
       return logFile;
     }
 
@@ -99,6 +80,7 @@ namespace Tlabs.JobCntrl.Intern {
           endTime= jbRes.EndAt,
           success= jbRes.IsSuccessful,
           message= jbRes.Message,
+          resultObjs= jbRes.ResultObjects,
           log=   jbRes.ProcessingLog == null
                ? null
                : new {
@@ -119,39 +101,6 @@ namespace Tlabs.JobCntrl.Intern {
         };
       }
     }
-
-    // private static void SerializeJobResult(TextWriter strm, Model.IJobResult jobRes) {
-    //   strm.WriteLine();
-    //   strm.WriteLine('{');
-
-    //   strm.Write("Job: "); JsonString.Write(strm, jobRes.JobName).WriteLine(',');
-    //   strm.Write("EndTime: "); JsonString.Write(strm, jobRes.EndAt).WriteLine(',');
-    //   strm.Write("Successful: "); strm.WriteLine(jobRes.IsSuccessful ? "true," : "false,");
-    //   strm.Write("Message: "); JsonString.Write(strm, jobRes.Message);
-
-    //   var log= jobRes.ProcessingLog;
-    //   if (null != log) {
-    //     strm.WriteLine(',');
-    //     strm.WriteLine("Log: {");
-    //     strm.Write("HasProblem: "); strm.WriteLine(log.HasProblem ? "true," : "false,");
-    //     strm.WriteLine("Entries: [");
-    //     bool first= true;
-    //     foreach (var entry in log.Entries) {
-    //       if (!first) strm.WriteLine(',');
-    //       first= false;
-    //       strm.Write("{{Lev: {0}, Time: \"{1:HH:mm:ss,FFF}\", Step: {2}, Msg: {3}}}",
-    //         JsonString.Encoded(entry.Level.ToString()),
-    //         log.EntryTime(entry),
-    //         JsonString.Encoded(entry.ProcessStep),
-    //         JsonString.Encoded(entry.Message)
-    //       );
-    //     }
-    //     strm.WriteLine();
-
-    //     strm.WriteLine("]}");  // Log/Entries
-    //   }
-    //   strm.Write('}');
-    // }
 
   }//class
 }
