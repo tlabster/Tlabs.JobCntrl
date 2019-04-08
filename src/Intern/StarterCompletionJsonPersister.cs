@@ -9,28 +9,33 @@ using Tlabs.Data.Serialize.Json;
 
 namespace Tlabs.JobCntrl.Intern {
 
-  class StarterCompletionJsonPersister : IStarterCompletionPersister {
+  /// <summary>Persists starter completion results as json file.</summary>
+  public class StarterCompletionJsonPersister : IStarterCompletionPersister {
     /// <summary>Default <see cref="App.ContentRoot"/> relative persistence path.</summary>
     public const string DEFAULT_PERSISTENCE_PATH= "data/jobStartLog";
     static readonly Encoding INFO_ENCODING= Encoding.UTF8;
     const string CONTENT_TYPE= "text/json";
     private DirectoryInfo complLogDir;
     private object synchLog= new object();
-
+    private bool logResObjects;
+    private bool append;
     /// <summary>Default Ctor.</summary>
-    public StarterCompletionJsonPersister() : this(DEFAULT_PERSISTENCE_PATH) { }
+    public StarterCompletionJsonPersister() : this(DEFAULT_PERSISTENCE_PATH, logResObjects: false, append: false) { }
 
     /// <summary>Ctor from <paramref name="persistencePath"/>.</summary>
-    public StarterCompletionJsonPersister(string persistencePath) {
+    public StarterCompletionJsonPersister(string persistencePath, bool logResObjects, bool append) {
       var complLogPath= Path.Combine(App.ContentRoot, persistencePath);
       this.complLogDir= new DirectoryInfo(complLogPath);
       this.complLogDir.Create();
       this.complLogDir.Refresh();
+      this.logResObjects= logResObjects;
+      this.append= append;
     }
 
     /// <summary>Event fired when a starter completion info has been persisted.</summary>
     public event Action<IStarterCompletionPersister, Model.Intern.IStarterCompletion, object> CompletionInfoPersisted;
 
+    ///<inherit/>
     public Stream GetLastCompletionInfo(string starterName, out string contentType, out Encoding infoEncoding) {
       lock (synchLog) {
         contentType= CONTENT_TYPE;
@@ -42,6 +47,7 @@ namespace Tlabs.JobCntrl.Intern {
       }
     }
 
+    ///<inherit/>
     public void StoreCompletionInfo(Model.Intern.IStarterCompletion starterCompletion) {
       FileInfo logFile;
       lock (synchLog) logFile= SerializeStarterCompletion(starterCompletion);
@@ -56,10 +62,10 @@ namespace Tlabs.JobCntrl.Intern {
     private FileInfo SerializeStarterCompletion(Model.Intern.IStarterCompletion starterCompletion) {
       var logFile= BuildFileInfo(starterCompletion.StarterName);
       var json= JsonFormat.CreateDynSerializer();
-      using (var strm= File.Open(logFile.FullName, FileMode.Append)) {
+      using (var strm= File.Open(logFile.FullName, append ? FileMode.Append : FileMode.Create)) {
         json.WriteObj(strm, buildStarterCompletion(starterCompletion));
         using (var wr= new StreamWriter(strm)) {
-          wr.WriteLine(",\f");
+          if (append) wr.WriteLine(",\f");
         }
       }
       return logFile;
@@ -75,12 +81,15 @@ namespace Tlabs.JobCntrl.Intern {
 
     private IEnumerable buildJobResults(IEnumerable<Model.IJobResult> jobResults) {
       foreach (var jbRes in jobResults) {
+        var resObj=   logResObjects
+                    ? jbRes.ResultObjects
+                    : null;
         yield return new {
           job= jbRes.JobName,
           endTime= jbRes.EndAt,
           success= jbRes.IsSuccessful,
           message= jbRes.Message,
-          resultObjs= jbRes.ResultObjects,
+          resultObjs= resObj,
           log=   jbRes.ProcessingLog == null
                ? null
                : new {
