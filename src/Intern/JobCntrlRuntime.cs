@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-
+using Tlabs.Config;
 using Tlabs.JobCntrl.Model;
 using Tlabs.JobCntrl.Model.Intern;
 
@@ -61,8 +62,6 @@ namespace Tlabs.JobCntrl.Intern {
         runtimeConfig?.Dispose();
         throw;
       }
-
-
 
       log.LogInformation("{n} Master Starter Template(s)", runCfg.MasterModels.Starters.Count);
       log.LogInformation("{n} Master Job Template(s)", runCfg.MasterModels.Jobs.Count);
@@ -201,6 +200,13 @@ namespace Tlabs.JobCntrl.Intern {
 
     } //class RuntimConfig
 
+    ///<summary>Service configurator.</summary>
+    public class Configurator : IConfigurator<IServiceCollection> {
+      ///<inherit/>
+      public void AddTo(IServiceCollection svcColl, IConfiguration cfg) {
+        svcColl.AddSingleton<IJobControl, JobCntrlRuntime>();
+      }
+    }
   }//class JobCntrlRuntime
 
 }
