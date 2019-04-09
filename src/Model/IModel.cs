@@ -19,12 +19,12 @@ namespace Tlabs.JobCntrl.Model {
   /// <summary>Interface of a JobControl model configuration template.</summary>
   public interface IModelCfg : IModel {
     /// <summary>Name of the MasterModel the runtime-instance of this configuration template is to be based on.</summary>
-    string MasterName { get; }
+    string Master { get; }
   }
   /// <summary>Interface of a job model configuration template.</summary>
   public interface IJobCfg : IModelCfg {
     /// <summary>Name of the runtime-starter the runtime-job instance is associated with.</summary>
-    string StarterName { get; }
+    string Starter { get; }
    }
   /// <summary>Abstract base model.</summary>
   public abstract class BaseModel : IModel {
@@ -47,7 +47,7 @@ namespace Tlabs.JobCntrl.Model {
     /// <remarks>Used to support implementing Job.Initialize()...</remarks>
     protected void InitBase(string name, string description, IProps properties) {
       if (null == (this.name= name)) throw new ArgumentNullException("name");
-      if (null == (this.description= description)) throw new ArgumentException("description");
+      this.description= description ?? "";
       this.properties= properties ?? ConfigProperties.EMPTY;
     }
 

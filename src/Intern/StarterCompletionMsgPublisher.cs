@@ -29,7 +29,10 @@ namespace Tlabs.JobCntrl.Intern {
     public Stream GetLastCompletionInfo(string starterName, out string contentType, out Encoding encoding) => throw new NotImplementedException();
 
     ///<inherit/>
-    public void StoreCompletionInfo(IStarterCompletion starterCompletion) => msgBroker.Publish(COMPLETION_SUBJECT, starterCompletion);
+    public void StoreCompletionInfo(IStarterCompletion starterCompletion) {
+      msgBroker.Publish(COMPLETION_SUBJECT, starterCompletion);
+      CompletionInfoPersisted?.Invoke(this, starterCompletion, null);
+    }
 
     ///<summary>Service configurator.</summary>
     public class Configurator : IConfigurator<IServiceCollection> {

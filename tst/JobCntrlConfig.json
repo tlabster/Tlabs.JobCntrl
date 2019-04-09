@@ -27,14 +27,14 @@
 
   "ControlCfg": {
     "Starters": [{
-      "Name": "ManualStart", "Master": "MANUAL"
+      "Name": "ManualStarter", "Master": "MANUAL"
     }, {
       "Name": "MessageStarter", "Master": "MESSAGE",
       "Properties": {
         "Message-Subject": "test.subject"
       }
     }, {
-      "Name": "ChainedStart", "Master": "CHAINED",
+      "Name": "ChainedStarter", "Master": "CHAINED",
       "Properties": {
         "Completed-Starter": "ManualStarter"
       }

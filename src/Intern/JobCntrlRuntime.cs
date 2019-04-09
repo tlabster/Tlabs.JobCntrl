@@ -155,7 +155,7 @@ namespace Tlabs.JobCntrl.Intern {
         /* Enable starters and register for completion event
          */
         foreach (var cfgStarter in cntrlCfg.Starters) {
-          var masterStarter= masterCfg.Starters[cfgStarter.MasterName];
+          var masterStarter= masterCfg.Starters[cfgStarter.Master];
           var runStarter= masterStarter.CreateRuntimeStarter(cfgStarter.Name, cfgStarter.Description, cfgStarter.Properties);
           this.starters.Add(runStarter.Name, runStarter);
           runStarter.ActivationComplete+= this.handleCompletion;
@@ -165,8 +165,8 @@ namespace Tlabs.JobCntrl.Intern {
         /* Configure jobs with starters
          */
         foreach(var cfgJob in cntrlCfg.Jobs) {
-          var masterJob= masterCfg.Jobs[cfgJob.MasterName];
-          var runJob= masterJob.CreateRuntimeJob(this.Starters[cfgJob.StarterName], cfgJob.Name, cfgJob.Description, cfgJob.Properties);
+          var masterJob= masterCfg.Jobs[cfgJob.Master];
+          var runJob= masterJob.CreateRuntimeJob(this.Starters[cfgJob.Starter], cfgJob.Name, cfgJob.Description, cfgJob.Properties);
           this.jobs.Add(runJob.Name, runJob);
         }
       }
@@ -207,6 +207,19 @@ namespace Tlabs.JobCntrl.Intern {
         svcColl.AddSingleton<IJobControl, JobCntrlRuntime>();
       }
     }
+
+    ///<summary>Validate data-store configuration.</summary>
+    public class RuntimeStarter : IConfigurator<MiddlewareContext> {
+      ///<inherit/>
+      public void AddTo(MiddlewareContext mware, IConfiguration cfg) {
+        Tlabs.App.WithServiceScope(svcProv => {
+          var jobCntrl= (JobCntrlRuntime) svcProv.GetRequiredService<IJobControl>();
+          jobCntrl.Init();
+          jobCntrl.Start();
+        });
+      }
+    }
+
   }//class JobCntrlRuntime
 
 }

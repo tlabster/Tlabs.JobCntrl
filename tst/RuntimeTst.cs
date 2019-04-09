@@ -48,7 +48,7 @@ namespace Tlabs.JobCntrl.Test {
         this.description= description;
         this.properties= properties;
       }
-      public string MasterName => masterName;
+      public string Master => masterName;
       public string Name => name;
       public string Description => description;
       public IReadOnlyDictionary<string, object> Properties => properties;
@@ -59,7 +59,7 @@ namespace Tlabs.JobCntrl.Test {
       public JobCfg(string master, string name, string starterName, string description, IReadOnlyDictionary<string, object> properties) : base(master, name, description, properties) {
         this.starter= starterName;
       }
-      public string StarterName => starter;
+      public string Starter => starter;
     }
     class TestJobCntrlCfg : IJobControlCfg {
       private IMasterCfg masterModels;

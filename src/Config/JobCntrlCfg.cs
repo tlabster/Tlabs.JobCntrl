@@ -31,29 +31,15 @@ namespace Tlabs.JobCntrl.Config {
     }
 
     internal class StarterCfg : IModelCfg {
-      private string masterName;
-      private string name;
-      private string description;
-      private IReadOnlyDictionary<string, object> properties;
-      public StarterCfg(string master, string name, string description, IReadOnlyDictionary<string, object> properties) {
-        this.masterName= master;
-        this.name= name;
-        this.description= description;
-        this.properties= properties;
-      }
-      public string MasterName => masterName;
-      public string Name => name;
-      public string Description => description;
-      public IReadOnlyDictionary<string, object> Properties => properties;
+      public string Master { get; set; }
+      public string Name { get; set; }
+      public string Description { get; set; }
+      public IReadOnlyDictionary<string, object> Properties { get; set; }
       public void Dispose() { }
     }
 
     internal class JobCfg : StarterCfg, IJobCfg {
-      private string starter;
-      public JobCfg(string master, string name, string starterName, string description, IReadOnlyDictionary<string, object> properties) : base(master, name, description, properties) {
-        this.starter= starterName;
-      }
-      public string StarterName => starter;
+      public string Starter { get; set; }
     }
   }
 
