@@ -3,9 +3,12 @@ using System.IO;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 
 using Tlabs.Misc;
 using Tlabs.Data.Serialize.Json;
+using Tlabs.Config;
 
 namespace Tlabs.JobCntrl.Intern {
 
@@ -24,7 +27,7 @@ namespace Tlabs.JobCntrl.Intern {
 
     /// <summary>Ctor from <paramref name="persistencePath"/>.</summary>
     public StarterCompletionJsonPersister(string persistencePath, bool logResObjects, bool append) {
-      var complLogPath= Path.Combine(App.ContentRoot, persistencePath);
+      var complLogPath= Path.Combine(App.ContentRoot, persistencePath ?? DEFAULT_PERSISTENCE_PATH);
       this.complLogDir= new DirectoryInfo(complLogPath);
       this.complLogDir.Create();
       this.complLogDir.Refresh();
@@ -111,5 +114,34 @@ namespace Tlabs.JobCntrl.Intern {
       }
     }
 
-  }//class
+    ///<summary>Service configurator.</summary>
+    public class Configurator : IConfigurator<IServiceCollection> {
+      ///<summary>Log path property.</summary>
+      public const string LOG_PATH= "logPath";
+      ///<summary>Append to log property.</summary>
+      public const string APPEND= "append";
+
+      private string logPath;
+      private bool append;
+      ///<summary>Default ctor.</summary>
+      public Configurator() : this(null) { }
+
+      ///<summary>Ctor from <paramref name="config"/>.</summary>
+      public Configurator(IDictionary<string, string> config) {
+        config= config ?? new Dictionary<string, string>();
+        if (   config.TryGetValue(LOG_PATH, out logPath)
+            && !Path.IsPathRooted(logPath))
+          logPath= Path.Combine(App.ContentRoot, logPath);
+        string val;
+        if (config.TryGetValue(APPEND, out val))
+          Boolean.TryParse(val, out append);
+      }
+
+      ///<inherit/>
+      public void AddTo(IServiceCollection svcColl, IConfiguration cfg) {
+        svcColl.AddSingleton<IStarterCompletionPersister>(new StarterCompletionJsonPersister(logPath, false, append));
+      }
+    }
+
+  }//class StarterCompletionJsonPersister
 }

@@ -1,11 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-
-using Tlabs.Misc;
-using Tlabs.Msg;
-using Tlabs.Data.Serialize.Json;
 using System.IO;
 using System.Text;
+using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
+
+using Tlabs.Msg;
+using Tlabs.Config;
 using Tlabs.JobCntrl.Model.Intern;
 
 namespace Tlabs.JobCntrl.Intern {
@@ -29,5 +30,14 @@ namespace Tlabs.JobCntrl.Intern {
 
     ///<inherit/>
     public void StoreCompletionInfo(IStarterCompletion starterCompletion) => msgBroker.Publish(COMPLETION_SUBJECT, starterCompletion);
+
+    ///<summary>Service configurator.</summary>
+    public class Configurator : IConfigurator<IServiceCollection> {
+      ///<inherit/>
+      public void AddTo(IServiceCollection svcColl, IConfiguration cfg) {
+        svcColl.AddSingleton<IStarterCompletionPersister, StarterCompletionMsgPublisher>();
+      }
+    }
+
   }
 }
