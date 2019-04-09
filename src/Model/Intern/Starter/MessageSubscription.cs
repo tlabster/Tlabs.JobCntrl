@@ -1,22 +1,30 @@
 ﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Tlabs.Msg;
 
 namespace Tlabs.JobCntrl.Model.Intern.Starter {
-  
+
   /// <summary>Starter that activates on published messages.</summary>
   /// <remarks>
   /// <para>The starter subscribes on a message subject specified by the <c>PROP_MSG_SUBJECT</c> config. property.
   /// The published message gets passed as run-properties.</para>
+  /// <para>If a buffer time (millisec.) was specified, multiple messages published within that buffer time are buffered into one single activation.</para>
   /// </remarks>
   public class MessageSubscription : BaseStarter {
     /// <summary>Name of a property that specifies the message subject.</summary>
     public const string PROP_MSG_SUBJECT= "Message-Subject";
+    /// <summary>Name of a property that specifies a optional buffer time in miliseconds.</summary>
+    public const string PROP_BUFFER= "Buffer-Ms";
 
     private static readonly ILogger log= App.Logger<MessageSubscription>();
 
     private IMessageBroker msgBroker;
     private string subscriptionSubject;
+    private int buffer;
+    private Task bufferTask;
+    private CancellationTokenSource cancelSource;
     private Action<BackgroundJobMessage> messageHandlerDelegate;
 
     /// <summary>Ctor from <paramref name="msgBroker"/>.</summary>
@@ -26,8 +34,11 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
     /// <summary>Internal starter initialization.</summary>
     protected override IStarter InternalInit() {
-      this.subscriptionSubject= PropertyString(PROP_MSG_SUBJECT);
+      this.subscriptionSubject= PropertyString(PROP_MSG_SUBJECT, "--undefined--");
       log.LogInformation("Message subscription starter '{name}' for subject [{sbj}] initialzed.", Name, subscriptionSubject);
+      if (0 != (this.buffer= PropertyInt(PROP_BUFFER, 0)))
+        log.LogInformation("Message buffer '{buffer}'ms.", this.buffer);
+
       ChangeEnabledState(this.isEnabled);
       return this;
     }
@@ -47,10 +58,33 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     }
 
     private void messageHandler(BackgroundJobMessage message) {
+      if (0 == buffer) {
+        doActivateWithMessage(message);
+        return;
+      }
+
+      lock(subscriptionSubject) {
+        if (null != cancelSource) {
+          cancelSource.Cancel();
+          bufferTask.Dispose();
+        }
+        cancelSource= new CancellationTokenSource();
+        bufferTask= Task.Delay(buffer, cancelSource.Token);
+        bufferTask.ContinueWith(t => {
+          lock (subscriptionSubject) {
+            t.Dispose();
+            cancelSource?.Dispose();
+            cancelSource= null;
+          }
+          doActivateWithMessage(message);
+        }, TaskContinuationOptions.NotOnCanceled);
+      }
+    }
+
+    private void doActivateWithMessage(BackgroundJobMessage message) {
       log.LogDebug("Message subscription starter '{name}' activation from soruce: {source}.", Name, message.Source);
       this.DoActivate(message.JobProperties);
     }
-
 
     /// <summary>Dispose managed resources on <paramref name="disposing"/> == true.</summary>
     protected override void Dispose(bool disposing) {

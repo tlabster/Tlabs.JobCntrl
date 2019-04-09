@@ -7,9 +7,9 @@ namespace Tlabs.JobCntrl {
   public class BackgroundJobMessage {
 
     /// <summary>Message source/origin (informational).</summary>
-    public string Source { get; }
+    public string Source { get; set;}
 
     /// <summary>Run-properties to be passed to the background job(s).</summary>
-    public IReadOnlyDictionary<string, object> JobProperties { get; }
+    public IReadOnlyDictionary<string, object> JobProperties { get; set; }
   }
 }
