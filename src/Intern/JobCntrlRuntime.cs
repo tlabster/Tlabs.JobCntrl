@@ -208,15 +208,13 @@ namespace Tlabs.JobCntrl.Intern {
       }
     }
 
-    ///<summary>Validate data-store configuration.</summary>
+    ///<summary>Runtime starter.</summary>
     public class RuntimeStarter : IConfigurator<MiddlewareContext> {
       ///<inherit/>
       public void AddTo(MiddlewareContext mware, IConfiguration cfg) {
-        Tlabs.App.WithServiceScope(svcProv => {
-          var jobCntrl= (JobCntrlRuntime) svcProv.GetRequiredService<IJobControl>();
-          jobCntrl.Init();
-          jobCntrl.Start();
-        });
+        var jobCntrl= (JobCntrlRuntime) Tlabs.App.ServiceProv.GetRequiredService<IJobControl>(); //unscoped singleton JobCntrl
+        jobCntrl.Init();
+        jobCntrl.Start();
       }
     }
 
