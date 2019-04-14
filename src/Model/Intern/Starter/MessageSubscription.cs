@@ -75,13 +75,12 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
     private void setCancelSource() {
       CancellationTokenSource cts0, cts;
-      while (null != (cts= Interlocked.CompareExchange<CancellationTokenSource>(ref cancelSource, cts0= new CancellationTokenSource(), null))) try {
+      if (null != (cts= Interlocked.CompareExchange<CancellationTokenSource>(ref cancelSource, cts0= new CancellationTokenSource(), null))) try {
         cts.Cancel(); //could throw if already disposed
         cts.Dispose();
         bufferTask.Dispose();
-        if (cts == Interlocked.CompareExchange<CancellationTokenSource>(ref cancelSource, cts0, cts))
-          break;
-        cts0.Dispose(); //retry;
+        if (cts != Interlocked.CompareExchange<CancellationTokenSource>(ref cancelSource, cts0, cts))
+          cts0.Dispose(); // let other win;
       }
       catch (Exception e) when (Misc.Safe.NoDisastrousCondition(e)) { }
     }
