@@ -63,22 +63,27 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
         return;
       }
 
-      lock(subscriptionSubject) {
-        if (null != cancelSource) {
-          cancelSource.Cancel();
-          bufferTask.Dispose();
-        }
-        cancelSource= new CancellationTokenSource();
-        bufferTask= Task.Delay(buffer, cancelSource.Token);
-        bufferTask.ContinueWith(t => {
-          lock (subscriptionSubject) {
-            t.Dispose();
-            cancelSource?.Dispose();
-            cancelSource= null;
-          }
-          doActivateWithMessage(message);
-        }, TaskContinuationOptions.NotOnCanceled);
+      setCancelSource();
+      bufferTask= Task.Delay(buffer, cancelSource.Token);
+      bufferTask.ContinueWith(t => {
+        t.Dispose();
+        cancelSource?.Dispose();
+        cancelSource= null;
+        doActivateWithMessage(message);
+      }, TaskContinuationOptions.NotOnCanceled);
+    }
+
+    private void setCancelSource() {
+      CancellationTokenSource cts0, cts;
+      while (null != (cts= Interlocked.CompareExchange<CancellationTokenSource>(ref cancelSource, cts0= new CancellationTokenSource(), null))) try {
+        cts.Cancel(); //could throw if already disposed
+        cts.Dispose();
+        bufferTask.Dispose();
+        if (cts == Interlocked.CompareExchange<CancellationTokenSource>(ref cancelSource, cts0, cts))
+          break;
+        cts0.Dispose(); //retry;
       }
+      catch (Exception e) when (Misc.Safe.NoDisastrousCondition(e)) { }
     }
 
     private void doActivateWithMessage(BackgroundJobMessage message) {
