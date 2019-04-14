@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 using Moq;
 
@@ -84,6 +85,23 @@ namespace Tlabs.JobCntrl.Test {
       subscriptionHandler(new BackgroundJobMessage { Source= "tstSource" });
       Thread.Sleep(50);
       Assert.Equal(2, actCnt);
+    }
+
+    [Fact]
+    public void TaskDisposeTest() {
+      bool wasCanceled= false;
+
+      var cts= new CancellationTokenSource();
+      var tsk= Task.Delay(50, cts.Token);
+      tsk.ContinueWith(t => {
+        wasCanceled= t.IsCanceled;
+      });
+      Thread.Sleep(5);
+      Assert.Throws<InvalidOperationException>(() => tsk.Dispose());
+      cts.Cancel();
+      cts.Dispose();
+      Thread.Sleep(100);
+      Assert.True(wasCanceled);
     }
   }
 }
