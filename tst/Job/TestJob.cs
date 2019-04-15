@@ -12,7 +12,7 @@ namespace Tlabs.JobCntrl.Test.Job {
       return this;
     }
 
-    protected override Model.IJobResult InternalRun(IDictionary<string, object> runProperties) {
+    protected override Model.IJobResult InternalRun(IReadOnlyDictionary<string, object> runProperties) {
       Log.ProcessStep= "PROC";
       Log.Detail("Start running test processing.");
       Log.InfoFormat("Activated with {0:D} propertie(s):", runProperties.Count);
