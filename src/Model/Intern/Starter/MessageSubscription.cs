@@ -44,15 +44,13 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     }
 
     /// <summary>Changes the enabled state of the starter according to <paramref name="enabled"/>.</summary>
-    [System.Security.SecurityCritical]
     protected override void ChangeEnabledState(bool enabled) {
       lock(msgBroker) {
         if (   true == (this.isEnabled= enabled)) {
           if (null == messageHandlerDelegate)
             msgBroker.Subscribe<BackgroundJobMessage>(subscriptionSubject, this.messageHandlerDelegate= this.messageHandler);
-          return;
         }
-        msgBroker.Unsubscribe(messageHandlerDelegate);
+        else msgBroker.Unsubscribe(messageHandlerDelegate);
       }
       log.LogDebug("Message subscription starter '{name}' enabled: {state}.", Name, isEnabled);
     }

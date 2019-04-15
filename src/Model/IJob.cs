@@ -116,7 +116,7 @@ namespace Tlabs.JobCntrl.Model {
     /// <par>Note: Other than the <see cref="IModel.Properties"/>, the <paramref name="runProperties"/> are not read-only.</par>"/>
     /// </param>
     /// <remarks>To be implemented with Job functionality.</remarks>
-    protected abstract IJobResult InternalRun(IDictionary<string, object> runProperties);
+    protected abstract IJobResult InternalRun(IJobProps runProperties);
 
     /// <summary>Create a <see cref="IJobResult"/> with the success status.</summary>
     protected IJobResult CreateResult(bool success) {
