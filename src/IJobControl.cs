@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 
 using Tlabs.JobCntrl.Model.Intern;
+using Tlabs.JobCntrl.Config;
 
 namespace Tlabs.JobCntrl {
   using IMasterStarterMap= IReadOnlyDictionary<string, MasterStarter>;
@@ -105,6 +106,15 @@ namespace Tlabs.JobCntrl {
     MasterModels,
     /// <summary>Runtime Model configuration.</summary>
     RuntimeModel
+  }
+
+  /// <summary>JobControl config. loader prop interface.</summary>
+  public interface IJobCntrlCfgLoaderProperties : IDictionary<string, string> { }
+
+  /// <summary>JobControl configurator interface.</summary>
+  public interface IJobCntrlConfigurator {
+    /// <summary>JobControl configuration.</summary>
+    JobCntrlCfg JobCntrlCfg { get; }
   }
 
   /// <summary>Interface of a JobControl's configuration persister.</summary>

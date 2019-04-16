@@ -1,4 +1,6 @@
-﻿using Xunit;
+﻿using System.Collections.Generic;
+
+using Xunit;
 using Xunit.Abstractions;
 
 using Tlabs.JobCntrl.Config;
@@ -11,7 +13,9 @@ namespace Tlabs.JobCntrl.Test {
     public JsonLoaderTest(LoaderCtx ctx) { this.ctx= ctx; }
 
     public class LoaderCtx {
-      public readonly JsonJobCntrlCfgLoader Loader= new JsonJobCntrlCfgLoader("JobCntrlConfig.json");
+      public readonly JsonJobCntrlCfgLoader Loader= new JsonJobCntrlCfgLoader(
+        new JobCntrlCfgLoaderProperties(new Dictionary<string, string> {["path"]= "JobCntrlConfig.json"}),
+        new IJobCntrlConfigurator[0]);
     }
 
     [Fact]

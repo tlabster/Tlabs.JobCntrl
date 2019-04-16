@@ -63,12 +63,13 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
       setCancelSource();
       bufferTask= Task.Delay(buffer, cancelSource.Token);
-      bufferTask.ContinueWith(t => {
+      bufferTask.ContinueWith((t, o) => {
+        CancellationTokenSource cts= (CancellationTokenSource)o;
         t.Dispose();
-        cancelSource?.Dispose();
-        cancelSource= null;
+        if (cts == Interlocked.CompareExchange<CancellationTokenSource>(ref cancelSource, null, cts)) 
+          cts.Dispose();
         doActivateWithMessage(message);
-      }, TaskContinuationOptions.NotOnCanceled);
+      }, cancelSource, TaskContinuationOptions.NotOnCanceled);
     }
 
     private void setCancelSource() {

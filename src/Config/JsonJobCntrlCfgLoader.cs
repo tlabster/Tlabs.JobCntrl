@@ -15,13 +15,34 @@ namespace Tlabs.JobCntrl.Config {
 
   ///<summary>Loads a <see cref="IJobControlCfg"/> form a json file.</summary>
   public class JsonJobCntrlCfgLoader : IJobControlCfgLoader {
+    ///<summary>Config path property.</summary>
+    public const string CFG_PATH= "path";
     JobCntrlCfg jobCntrlCfg;
     IMasterCfg masterCfg;
-    ///<summary>Ctor from <paramref name="configPath"/>.</summary>
-    public JsonJobCntrlCfgLoader(string configPath) {
+    ///<summary>Ctor from <paramref name="props"/> and <paramref name="configs"/>.</summary>
+    public JsonJobCntrlCfgLoader(IJobCntrlCfgLoaderProperties props, IEnumerable<IJobCntrlConfigurator> configs) {
+      string configPath;
+      if (!props.TryGetValue(CFG_PATH, out configPath)) throw new Tlabs.AppConfigException($"Missing {CFG_PATH} config");
+      if (!Path.IsPathRooted(configPath))
+        configPath= Path.Combine(App.ContentRoot, configPath);
       var json= JsonFormat.CreateSerializer<JobCntrlCfg>();
       this.jobCntrlCfg= json.LoadObj(File.OpenRead(configPath));
-      if (null == this.jobCntrlCfg.MasterCfg) throw new AppConfigException($"Missing '{nameof(this.jobCntrlCfg.MasterCfg)}' property.");
+
+      this.jobCntrlCfg.MasterCfg=           this.jobCntrlCfg.MasterCfg ?? new JobCntrlCfg.MasterConfig();
+      this.jobCntrlCfg.MasterCfg.Starters=  this.jobCntrlCfg.MasterCfg.Starters ?? new List<JobCntrlCfg.MasterCfgEntry>();
+      this.jobCntrlCfg.MasterCfg.Jobs=      this.jobCntrlCfg.MasterCfg.Jobs ?? new List<JobCntrlCfg.MasterCfgEntry>();
+
+      this.jobCntrlCfg.ControlCfg=          this.jobCntrlCfg.ControlCfg ?? new JobCntrlCfg.ControlConfig();
+      this.jobCntrlCfg.ControlCfg.Starters= this.jobCntrlCfg.ControlCfg.Starters ?? new List<JobCntrlCfg.StarterCfg>();
+      this.jobCntrlCfg.ControlCfg.Jobs=     this.jobCntrlCfg.ControlCfg.Jobs ?? new List<JobCntrlCfg.JobCfg>();
+
+      foreach(var cfg in configs) {
+        var cntrlCfg= cfg.JobCntrlCfg;
+        this.jobCntrlCfg.MasterCfg.Starters.AddRange(cntrlCfg.MasterCfg.Starters);
+        this.jobCntrlCfg.MasterCfg.Jobs.AddRange(cntrlCfg.MasterCfg.Jobs);
+        this.jobCntrlCfg.ControlCfg.Starters.AddRange(cntrlCfg.ControlCfg.Starters);
+        this.jobCntrlCfg.ControlCfg.Jobs.AddRange(cntrlCfg.ControlCfg.Jobs);
+      }
 
       this.masterCfg= new MasterCfg(this.jobCntrlCfg);
     }
@@ -65,25 +86,20 @@ namespace Tlabs.JobCntrl.Config {
 
     ///<summary>Service configurator.</summary>
     public class Configurator : IConfigurator<IServiceCollection> {
-      ///<summary>Config path property.</summary>
-      public const string CFG_PATH= "path";
-
-      private string configPath;
+ 
+      private IDictionary<string, string> config;
       ///<summary>Default ctor.</summary>
       public Configurator() : this(null) { }
 
       ///<summary>Ctor from <paramref name="config"/>.</summary>
       public Configurator(IDictionary<string, string> config) {
-        config= config ?? new Dictionary<string, string>();
-        config.TryGetValue(CFG_PATH, out configPath);
-        if (string.IsNullOrEmpty(configPath)) throw new AppConfigException($"{GetType().Name}: Missing config property '{CFG_PATH}'");
-        if (!Path.IsPathRooted(configPath))
-          configPath= Path.Combine(App.ContentRoot, configPath);
+        this.config= config ?? new Dictionary<string, string>();
       }
 
       ///<inherit/>
       public void AddTo(IServiceCollection svcColl, IConfiguration cfg) {
-        svcColl.AddSingleton<IJobControlCfgLoader>(new JsonJobCntrlCfgLoader(configPath));
+        svcColl.AddSingleton<IJobCntrlCfgLoaderProperties>(new JobCntrlCfgLoaderProperties(config));
+        svcColl.AddSingleton<IJobControlCfgLoader, JsonJobCntrlCfgLoader>();
       }
 
     }
