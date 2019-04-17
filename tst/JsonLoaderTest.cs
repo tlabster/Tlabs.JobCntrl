@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-
+using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -13,9 +13,31 @@ namespace Tlabs.JobCntrl.Test {
     public JsonLoaderTest(LoaderCtx ctx) { this.ctx= ctx; }
 
     public class LoaderCtx {
-      public readonly JsonJobCntrlCfgLoader Loader= new JsonJobCntrlCfgLoader(
-        new JobCntrlCfgLoaderProperties(new Dictionary<string, string> {["path"]= "JobCntrlConfig.json"}),
-        new IJobCntrlConfigurator[0]);
+      public readonly JsonJobCntrlCfgLoader Loader;
+
+      public LoaderCtx() {
+        var tstConfigurator= new JobCntrlConfigurator();
+        tstConfigurator.DefineMasterStarter(  //duplicate overriding definition
+          name: "MESSAGE", description: "Message activated starter",
+          type: typeof(Tlabs.JobCntrl.Model.Intern.Starter.MessageSubscription).AssemblyQualifiedName
+        );
+        tstConfigurator.DefineMasterJob(
+          name: "TEST", description: "Test Job",
+          type: typeof(Tlabs.JobCntrl.Test.Job.TestJob).AssemblyQualifiedName
+        );
+        tstConfigurator.DefineStarter(
+          name: "Test-Msg", description: "Test message starter",
+          master: "MESSAGE"
+        );
+        tstConfigurator.DefineJob(
+          name: "Msg-Job", description: "Test message handler job",
+          master: "TEST", starter: "Test-Msg"
+        );
+
+        this.Loader= new JsonJobCntrlCfgLoader(
+        new JobCntrlCfgLoaderProperties(new Dictionary<string, string> { ["path"]= "JobCntrlConfig.json" }),
+        new IJobCntrlConfigurator[] { tstConfigurator });
+      }
     }
 
     [Fact]
@@ -23,15 +45,15 @@ namespace Tlabs.JobCntrl.Test {
       var loader= ctx.Loader;
 
       var masterCfg= loader.LoadMasterConfiguration();
-      Assert.NotEmpty(masterCfg.Starters);
+      Assert.Equal(4, masterCfg.Starters.Count);
       Assert.Equal("MANUAL", masterCfg.Starters["MANUAL"].Name);
 
-      Assert.NotEmpty(masterCfg.Jobs);
+      Assert.Equal(1, masterCfg.Jobs.Count);
       Assert.Equal("TEST", masterCfg.Jobs["TEST"].Name);
 
       var cntrlCfg= loader.LoadRuntimeConfiguration(masterCfg);
-      Assert.NotEmpty(cntrlCfg.Starters);
-      Assert.NotEmpty(cntrlCfg.Jobs);
+      Assert.Equal(4, cntrlCfg.Starters.ToList().Count);
+      Assert.Equal(5, cntrlCfg.Jobs.ToList().Count);
     }
   }
 }

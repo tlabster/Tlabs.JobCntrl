@@ -11,8 +11,11 @@ namespace Tlabs.JobCntrl.Config {
 
     /// <summary>Default ctor.</summary>
     public JobCntrlConfigurator() {
+      this.MasterCfg= new JobCntrlCfg.MasterConfig();
       this.MasterCfg.Starters= new List<MasterCfgEntry>();
       this.MasterCfg.Jobs= new List<MasterCfgEntry>();
+
+      this.ControlCfg= new JobCntrlCfg.ControlConfig();
       this.ControlCfg.Starters= new List<StarterCfg>();
       this.ControlCfg.Jobs= new List<JobCfg>();
   }

@@ -65,10 +65,10 @@ namespace Tlabs.JobCntrl.Config {
         this.jobCntrlCfg= jobCntrlCfg;
 
         if (null == jobCntrlCfg.MasterCfg.Starters) throw new AppConfigException($"Missing '{nameof(jobCntrlCfg.MasterCfg.Starters)}' property.");
-        Starters= jobCntrlCfg.MasterCfg.Starters.Select(e => e.ToMasterStarter()).ToDictionary(s => s.Name);
+        Starters= jobCntrlCfg.MasterCfg.Starters.Select(e => e.ToMasterStarter()).ToMasterDictionary();
 
         if (null == jobCntrlCfg.MasterCfg.Jobs) throw new AppConfigException($"Missing '{nameof(jobCntrlCfg.MasterCfg.Jobs)}' property.");
-        Jobs= jobCntrlCfg.MasterCfg.Jobs.Select(e => e.ToMasterJob()).ToDictionary(j => j.Name);
+        Jobs= jobCntrlCfg.MasterCfg.Jobs.Select(e => e.ToMasterJob()).ToMasterDictionary();
       }
       public IReadOnlyDictionary<string, MasterStarter> Starters { get; }
       public IReadOnlyDictionary<string, MasterJob> Jobs { get; }
@@ -102,6 +102,17 @@ namespace Tlabs.JobCntrl.Config {
         svcColl.AddSingleton<IJobControlCfgLoader, JsonJobCntrlCfgLoader>();
       }
 
+    }
+  }
+
+  ///<summary>Extension class.</summary>
+  public static class ToMasterDictionaryExtension {
+    ///<summary>Convert <paramref name="masters"/> into dictionary with overwriting exisiting.</summary>
+    public static  Dictionary<string, T> ToMasterDictionary<T>(this IEnumerable<T> masters) where T : BaseModel {
+      var dict= new Dictionary<string, T>();
+      foreach (var m in masters)
+        dict[m.Name]= m;
+      return dict;
     }
   }
 }
