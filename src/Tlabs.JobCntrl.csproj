@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <VersionPrefix>1.0.2</VersionPrefix>
+    <VersionPrefix>1.0.3</VersionPrefix>
     <TargetFramework>netcoreapp2.1</TargetFramework>
     <OutputType>Library</OutputType>
     <RuntimeFrameworkVersion>2.1.0</RuntimeFrameworkVersion>
@@ -9,8 +9,11 @@
 
     <Description>Background job control runtime and framework.</Description>
     <Authors>Tlabs</Authors>
+<!--
+    ** until supported with all SDK versions....
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
+-->
     <PackageLicenseUrl>https://opensource.org/licenses/MIT</PackageLicenseUrl>
     <PackageProjectUrl>https://bitbucket.org/tlabster/tlabs.jobcntrl</PackageProjectUrl>
   </PropertyGroup>

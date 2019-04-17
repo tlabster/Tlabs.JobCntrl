@@ -17,83 +17,39 @@ namespace Tlabs.JobCntrl.Test {
   public class RuntimeTst {
     ITestOutputHelper tstout;
     AppTimeEnvironment appTimeEnv;
+    Config.JsonJobCntrlCfgLoader tstCfgLoader;
 
     public RuntimeTst(AppTimeEnvironment appTimeEnv, ITestOutputHelper tstout) {
       this.appTimeEnv= appTimeEnv;
       this.tstout= tstout;
-    }
 
-    class TestMasterCfg : IMasterCfg {
-      private IReadOnlyDictionary<string, MasterStarter> starters= new ModelDictionary<MasterStarter> {
-        ["MANUAL"]= new MasterStarter("MANUAL", "Manual activation only", typeof(Manual), null),
-        ["SCHEDULE"]= new MasterStarter("SCHEDULE", "Time scheduled starter activation.", typeof(TimeSchedule), null),
-        ["CHAINED"]= new MasterStarter("CHAINED", "Chained activation after completion of previous starter.", typeof(Chained), null),
-      }.AsReadonly();
-      private IReadOnlyDictionary<string, MasterJob> jobs= new ModelDictionary<MasterJob> {
-        ["TEST"]= new MasterJob("TEST", "Test job.", typeof(Job.TestJob), null)
-      }.AsReadOnly();
+      var cfg= new Config.JobCntrlConfigurator();
+      cfg.DefineMasterStarter(name: "MANUAL", description: "Manual activation only", type: typeof(Manual).AssemblyQualifiedName)
+         .DefineMasterStarter(name: "SCHEDULE", description: "Time scheduled starter activation.", type: typeof(TimeSchedule).AssemblyQualifiedName)
+         .DefineMasterStarter(name: "CHAINED", description: "Chained activation after completion of previous starter.", type: typeof(Chained).AssemblyQualifiedName)
 
-      public IReadOnlyDictionary<string, MasterStarter> Starters => starters;
+         .DefineMasterJob(name: "TEST", description: "Test job.", type: typeof(Job.TestJob).AssemblyQualifiedName)
 
-      public IReadOnlyDictionary<string, MasterJob> Jobs => jobs;
-    }
-    class StarterCfg : IModelCfg {
-      private string masterName;
-      private string name;
-      private string description;
-      private IReadOnlyDictionary<string, object> properties;
-      public StarterCfg(string master, string name, string description, IReadOnlyDictionary<string, object> properties) {
-        this.masterName= master;
-        this.name= name;
-        this.description= description;
-        this.properties= properties;
-      }
-      public string Master => masterName;
-      public string Name => name;
-      public string Description => description;
-      public IReadOnlyDictionary<string, object> Properties => properties;
-      public void Dispose() { }
-    }
-    class JobCfg : StarterCfg, IJobCfg {
-      private string starter;
-      public JobCfg(string master, string name, string starterName, string description, IReadOnlyDictionary<string, object> properties) : base(master, name, description, properties) {
-        this.starter= starterName;
-      }
-      public string Starter => starter;
-    }
-    class TestJobCntrlCfg : IJobControlCfg {
-      private IMasterCfg masterModels;
-      private IEnumerable<IModelCfg> starters= new List<IModelCfg> {
-        new StarterCfg("MANUAL", "ManualStarter", "Manual starter activation", null),
-        new StarterCfg("CHAINED", "ChainedStarter", "Chained starter activation", new ConfigProperties {
-          [Chained.PROP_COMPLETED_STARTER]= "ManualStarter"
-        })
-      };
-      private IEnumerable<IJobCfg> jobs= new List<IJobCfg> {
-        new JobCfg("TEST", "Job1.1", "ManualStarter", "Stage-1 / Job-1", null ),
-        new JobCfg("TEST", "Job1.2", "ManualStarter", "Stage-1 / Job-2", new ConfigProperties {
-          ["min-Wait"]= 900,
-          ["max-Wait"]= 1300
-        }),
-        new JobCfg("TEST", "Job2.1", "ChainedStarter", "Stage-2 / Job-1", null ),
-        new JobCfg("TEST", "Job2.2", "ChainedStarter", "Stage-2 / Job-2", new ConfigProperties {
+         .DefineStarter(master: "MANUAL", name: "ManualStarter", description: "Manual starter activation")
+         .DefineStarter(master: "CHAINED", name: "ChainedStarter", description: "Chained starter activation", properties: new Dictionary<string, object> {
+           [Chained.PROP_COMPLETED_STARTER]= "ManualStarter"
+         })
+         .DefineJob(master: "TEST", name: "Job1.1", starter: "ManualStarter", description: "Stage-1 / Job-1")
+         .DefineJob(master: "TEST", name: "Job1.2", starter: "ManualStarter", description: "Stage-1 / Job-2", properties: new Dictionary<string, object> {
+           ["min-Wait"]= 900,
+           ["max-Wait"]= 1300
+         })
+        .DefineJob(master: "TEST", name: "Job2.1", starter: "ChainedStarter", description: "Stage-2 / Job-1")
+        .DefineJob(master: "TEST", name: "Job2.2", starter: "ChainedStarter", description: "Stage-2 / Job-2", properties: new Dictionary<string, object> {
           ["throw"]= true
-        }),
-      };
-      public TestJobCntrlCfg(IMasterCfg masterCfg) { this.masterModels= masterCfg; }
-      public IMasterCfg MasterModels => masterModels;
-      public IEnumerable<IModelCfg> Starters => starters;
-      public IEnumerable<IJobCfg> Jobs => jobs;
+        });
+
+      this.tstCfgLoader= new Config.JsonJobCntrlCfgLoader(
+        new Config.JobCntrlCfgLoaderProperties(new Dictionary<string, string> { ["path"]= "EmptyCfg.json"} ),
+        new IJobCntrlConfigurator[] { cfg }
+      );
     }
 
-    class TestConfigLoader : IJobControlCfgLoader {
-      IJobControlCfg runtimeCfg= new TestJobCntrlCfg(new TestMasterCfg());
-      public IJobControlCfgPersister ConfigPersister => throw new System.NotImplementedException();
-
-      public IMasterCfg LoadMasterConfiguration() => runtimeCfg.MasterModels;
-
-      public IJobControlCfg LoadRuntimeConfiguration(IMasterCfg masterCfg) => runtimeCfg;
-    }
 
     class TestStarterCompletion : IStarterCompletionPersister {
       public event Action<IStarterCompletionPersister, IStarterCompletion, object> CompletionInfoPersisted;
@@ -103,7 +59,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public void BasicRuntimeTest() {
-      var rt= new JobCntrlRuntime(new TestConfigLoader(), App.Logger<JobCntrlRuntime>());
+      var rt= new JobCntrlRuntime(this.tstCfgLoader, App.Logger<JobCntrlRuntime>());
       Assert.Throws<InvalidOperationException>(() => rt.Start());
       rt.Init();
       Assert.Throws<InvalidOperationException>(() => rt.Init());
@@ -129,7 +85,8 @@ namespace Tlabs.JobCntrl.Test {
         if (++completionCnt > 1)
           actComplete.SignalPermanent(true);
       };
-      var rt= new JobCntrlRuntime(new TestConfigLoader(), starterCompletion, App.Logger<JobCntrlRuntime>());
+
+      var rt= new JobCntrlRuntime(this.tstCfgLoader, starterCompletion, App.Logger<JobCntrlRuntime>());
       rt.Init();
       rt.Start();
 
