@@ -16,13 +16,9 @@
       "Name": "CHAINED", "Description": "Chained activation after completion of previous starter.",
       "Type": "Tlabs.JobCntrl.Model.Intern.Starter.Chained, Tlabs.JobCntrl",
       "Properties": { }
-    }],
+    }]
 
-    "Jobs": [
-      {
-        "Name": "TEST", "Description": "Test Job", "Type": "Tlabs.JobCntrl.Test.Job.TestJob, Tlabs.JobCntrl.Tests",
-      }
-    ]
+    // "Jobs": []
   },
 
   "ControlCfg": {

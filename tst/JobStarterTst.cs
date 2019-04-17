@@ -67,7 +67,7 @@ namespace Tlabs.JobCntrl.Test {
         ++tester.jobInitCnt;
         return this;
       }
-      protected override IJobResult InternalRun(IDictionary<string, object> runProperties) {
+      protected override IJobResult InternalRun(IReadOnlyDictionary<string, object> runProperties) {
         tester= (JobStarterTst)runProperties["tesTEr"];
         ++tester.jobRunCnt;
         return CreateResult(true);
