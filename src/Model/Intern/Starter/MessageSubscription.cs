@@ -83,7 +83,6 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
         if (cts != Interlocked.CompareExchange<CancellationTokenSource>(ref cancelSource, cts0, cts))
           cts0.Dispose(); // let other win;
       }
-      catch (Exception e) when (Misc.Safe.NoDisastrousCondition(e)) { }
     }
 
     private void doActivateWithMessage(BackgroundJobMessage message) {
