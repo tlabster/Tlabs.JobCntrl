@@ -24,6 +24,9 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     /// <summary>Internal starter initialization.</summary>
     protected override IStarter InternalInit() {
       var directoryPath= PropertyString(PROP_DIR_PATH);
+      if (!Path.IsPathRooted(directoryPath))
+        directoryPath= Path.Combine(Tlabs.App.MainEntryPath, directoryPath);
+      
       var watchDir= new DirectoryInfo(directoryPath);
       if (false == watchDir.Exists) throw new JobCntrlConfigException(string.Format("Directory does not exist: '{0}'", watchDir.FullName));
 

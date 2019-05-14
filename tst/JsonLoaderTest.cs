@@ -48,7 +48,7 @@ namespace Tlabs.JobCntrl.Test {
       Assert.Equal(4, masterCfg.Starters.Count);
       Assert.Equal("MANUAL", masterCfg.Starters["MANUAL"].Name);
 
-      Assert.Equal(1, masterCfg.Jobs.Count);
+      Assert.Equal(2, masterCfg.Jobs.Count);
       Assert.Equal("TEST", masterCfg.Jobs["TEST"].Name);
 
       var cntrlCfg= loader.LoadRuntimeConfiguration(masterCfg);
