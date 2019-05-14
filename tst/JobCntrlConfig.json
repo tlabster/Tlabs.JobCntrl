@@ -18,7 +18,10 @@
       "Properties": { }
     }]
 
-    // "Jobs": []
+    "Jobs": [{
+      "Name": "MASTER_TEST", "Description": "Master test job",
+      "Type": "Tlabs.JobCntrl.Test.Job.TestJob, Tlabs.JobCntrl.Tests"
+    }]
   },
 
   "ControlCfg": {
