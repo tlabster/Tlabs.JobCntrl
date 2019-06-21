@@ -27,7 +27,7 @@ namespace Tlabs.JobCntrl.Intern {
 
     /// <summary>Ctor from <paramref name="persistencePath"/>.</summary>
     public StarterCompletionJsonPersister(string persistencePath, bool logResObjects, bool append) {
-      var complLogPath= Path.Combine(App.ContentRoot, persistencePath ?? DEFAULT_PERSISTENCE_PATH);
+      var complLogPath= Path.Combine(Path.GetDirectoryName(Tlabs.App.MainEntryPath), persistencePath ?? DEFAULT_PERSISTENCE_PATH);
       this.complLogDir= new DirectoryInfo(complLogPath);
       this.complLogDir.Create();
       this.complLogDir.Refresh();
