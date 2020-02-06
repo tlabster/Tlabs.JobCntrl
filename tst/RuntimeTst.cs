@@ -16,10 +16,10 @@ namespace Tlabs.JobCntrl.Test {
   [Collection("AppTimeScope")]
   public class RuntimeTst {
     ITestOutputHelper tstout;
-    AppTimeEnvironment appTimeEnv;
+    SvcProvEnvironment appTimeEnv;
     Config.JsonJobCntrlCfgLoader tstCfgLoader;
 
-    public RuntimeTst(AppTimeEnvironment appTimeEnv, ITestOutputHelper tstout) {
+    public RuntimeTst(SvcProvEnvironment appTimeEnv, ITestOutputHelper tstout) {
       this.appTimeEnv= appTimeEnv;
       this.tstout= tstout;
 
@@ -34,7 +34,10 @@ namespace Tlabs.JobCntrl.Test {
          .DefineStarter(master: "CHAINED", name: "ChainedStarter", description: "Chained starter activation", properties: new Dictionary<string, object> {
            [Chained.PROP_COMPLETED_STARTER]= "ManualStarter"
          })
-         .DefineJob(master: "TEST", name: "Job1.1", starter: "ManualStarter", description: "Stage-1 / Job-1")
+         .DefineJob(master: "TEST", name: "Job1.1", starter: "ManualStarter", description: "Stage-1 / Job-1", properties: new Dictionary<string, object> {
+           ["Log-Level"]= "Detail",
+           ["jobProp01"]= "jobProp01"
+         })
          .DefineJob(master: "TEST", name: "Job1.2", starter: "ManualStarter", description: "Stage-1 / Job-2", properties: new Dictionary<string, object> {
            ["min-Wait"]= 900,
            ["max-Wait"]= 1300
@@ -78,11 +81,12 @@ namespace Tlabs.JobCntrl.Test {
         tstout.WriteLine($"Starter '{compl.StarterName}' completed running jobs:");
         foreach(var res in compl.JobResults) {
           tstout.WriteLine($"\tJob '{res.JobName}' ({res.Message})");
-          Assert.Equal(res.JobName != "Job2.2", res.IsSuccessful);
+          if (res.JobName != "Job2.2" != res.IsSuccessful)
+            tstout.WriteLine($"Job '{res.JobName}' failed: {res.Message}");
           if (null != res.ProcessingLog) foreach(var ent in res.ProcessingLog.Entries)
-            tstout.WriteLine($"\t\tStep: {ent.ProcessStep}");
+            tstout.WriteLine($"\t\tStep: {ent.ProcessStep} {ent.Message}");
         }
-        if (++completionCnt > 1)
+        if (++completionCnt > 0)
           actComplete.SignalPermanent(true);
       };
 
@@ -93,9 +97,9 @@ namespace Tlabs.JobCntrl.Test {
       var manualStarter= rt.Starters["manualStarter"];
       Assert.True(manualStarter.Enabled);
       manualStarter.DoActivate(new ConfigProperties {
-        ["TST-PROP"]= "manual activation test"
+        ["TST-RUN-PROP"]= "manual activation test"
       });
-      actComplete.WaitForSignal();
+      actComplete.WaitForSignal(1500);
       Assert.True(completionCnt > 0);
     }
   }

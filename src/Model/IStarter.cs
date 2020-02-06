@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using Microsoft.Extensions.Logging;
+
 namespace Tlabs.JobCntrl.Model {
   using IProps= IReadOnlyDictionary<string, object>;
 
   /// <summary>Delegate invoked on <see cref="IStarter.Activate"/> event.</summary>
   /// <param name="starter">Activated target Starter</param>
   /// <param name="properties">Job run properties</param>
-  public delegate void StarterActivator(IStarter starter, IProps properties);
+  /// <returns>true if any jobs have been actually started.</returns>
+  public delegate bool StarterActivator(IStarter starter, IProps properties);
 
   /// <summary>JobControl Starter to start the run of an Job.</summary>
   public interface IStarter : IModel, IDisposable {
@@ -29,7 +32,8 @@ namespace Tlabs.JobCntrl.Model {
 
     /// <summary>Manually activate the Starter.</summary>
     /// <param name="activationProps">Activation properties to be passed to the Job(s) being started.</param>
-    void DoActivate(IProps activationProps);
+    /// <returns>true if actually at least one jobs has been activated, false if no job at all was activated (because the starter was disabled or no jobs are configured...</returns>
+    bool DoActivate(IProps activationProps);
   }
 
   /// <summary>Starter base class.</summary>
@@ -51,8 +55,10 @@ namespace Tlabs.JobCntrl.Model {
     }
 
     ///<inherit/>
-    public virtual void DoActivate(IProps invocationProps) {
-      FireActivationEvent(invocationProps);
+    public virtual bool DoActivate(IProps invocationProps) {
+      var activateEvent= Activate;
+      if (!Enabled || null == activateEvent) return false;
+      return activateEvent.Invoke(this, invocationProps);
     }
 
     ///<inherit/>
@@ -68,12 +74,6 @@ namespace Tlabs.JobCntrl.Model {
     /// <summary>Internal enabled state change.</summary>
     /// <remarks>Called from <see cref="BaseStarter.Enabled"/> setter (hence must not call the enabled setter to set new state!).</remarks>
     protected abstract void ChangeEnabledState(bool enabled);
-
-    /// <summary>Fire activation event to start/run Job(s).</summary>
-    protected void FireActivationEvent(IProps invocationProps) {
-      if (Enabled)
-        Activate?.Invoke(this, invocationProps);
-    }
 
     /// <summary>Internal Dispose.</summary>
     /// <remarks>Managed resources should only be disposed when <paramref name="disposing"/> == true.</remarks>

@@ -17,15 +17,25 @@ namespace Tlabs.JobCntrl.Config {
   public class JsonJobCntrlCfgLoader : IJobControlCfgLoader {
     ///<summary>Config path property.</summary>
     public const string CFG_PATH= "path";
+    
+    IEnumerable<IJobCntrlConfigurator> configs;
+    string configPath;
+    JsonFormat.Serializer<JobCntrlCfg> json;
     JobCntrlCfg jobCntrlCfg;
-    IMasterCfg masterCfg;
     ///<summary>Ctor from <paramref name="props"/> and <paramref name="configs"/>.</summary>
     public JsonJobCntrlCfgLoader(IJobCntrlCfgLoaderProperties props, IEnumerable<IJobCntrlConfigurator> configs) {
-      string configPath;
       if (!props.TryGetValue(CFG_PATH, out configPath)) throw new Tlabs.AppConfigException($"Missing {CFG_PATH} config");
       if (!Path.IsPathRooted(configPath))
-        configPath= Path.Combine(App.ContentRoot, configPath);
-      var json= JsonFormat.CreateSerializer<JobCntrlCfg>();
+        this.configPath= Path.Combine(App.ContentRoot, configPath);
+      if (null == (this.configs= configs)) throw new ArgumentNullException(nameof(configs));
+      this.json= JsonFormat.CreateSerializer<JobCntrlCfg>();
+    }
+
+    ///<inherit/>
+    public IJobControlCfgPersister ConfigPersister => throw new NotImplementedException();
+
+    ///<inherit/>
+    public IMasterCfg LoadMasterConfiguration() {
       this.jobCntrlCfg= json.LoadObj(File.OpenRead(configPath));
 
       this.jobCntrlCfg.MasterCfg=           this.jobCntrlCfg.MasterCfg ?? new JobCntrlCfg.MasterConfig();
@@ -36,7 +46,7 @@ namespace Tlabs.JobCntrl.Config {
       this.jobCntrlCfg.ControlCfg.Starters= this.jobCntrlCfg.ControlCfg.Starters ?? new List<JobCntrlCfg.StarterCfg>();
       this.jobCntrlCfg.ControlCfg.Jobs=     this.jobCntrlCfg.ControlCfg.Jobs ?? new List<JobCntrlCfg.JobCfg>();
 
-      foreach(var cfg in configs) {
+      foreach (var cfg in configs) {
         var cntrlCfg= cfg.JobCntrlCfg;
         this.jobCntrlCfg.MasterCfg.Starters.AddRange(cntrlCfg.MasterCfg.Starters);
         this.jobCntrlCfg.MasterCfg.Jobs.AddRange(cntrlCfg.MasterCfg.Jobs);
@@ -44,19 +54,12 @@ namespace Tlabs.JobCntrl.Config {
         this.jobCntrlCfg.ControlCfg.Jobs.AddRange(cntrlCfg.ControlCfg.Jobs);
       }
 
-      this.masterCfg= new MasterCfg(this.jobCntrlCfg);
+      return new MasterCfg(this.jobCntrlCfg);
     }
 
     ///<inherit/>
-    public IJobControlCfgPersister ConfigPersister => throw new NotImplementedException();
-
-    ///<inherit/>
-    public IMasterCfg LoadMasterConfiguration() => this.masterCfg;
-
-    ///<inherit/>
     public IJobControlCfg LoadRuntimeConfiguration(IMasterCfg masterCfg) {
-      if (null == (this.masterCfg= masterCfg)) throw new ArgumentNullException(nameof(masterCfg));
-      return new CntrlCfg(this);
+      return new CntrlCfg(masterCfg, jobCntrlCfg.ControlCfg);
     }
 
     private class MasterCfg : IMasterCfg {
@@ -75,13 +78,13 @@ namespace Tlabs.JobCntrl.Config {
     }
 
     private class CntrlCfg : IJobControlCfg {
-      JsonJobCntrlCfgLoader cfgLoader;
-      public CntrlCfg(JsonJobCntrlCfgLoader cfgLoader) { this.cfgLoader= cfgLoader; }
-      public IMasterCfg MasterModels => cfgLoader.masterCfg;
+      JobCntrlCfg.ControlConfig cntrlCfg;
+      public CntrlCfg(IMasterCfg masterCfg, JobCntrlCfg.ControlConfig cntrlCfg) { this.MasterModels= masterCfg; this.cntrlCfg= cntrlCfg; }
+      public IMasterCfg MasterModels { get; }
 
-      public IEnumerable<IModelCfg> Starters => this.cfgLoader.jobCntrlCfg.ControlCfg.Starters;
+      public IEnumerable<IModelCfg> Starters => cntrlCfg.Starters;
 
-      public IEnumerable<IJobCfg> Jobs => this.cfgLoader.jobCntrlCfg.ControlCfg.Jobs;
+      public IEnumerable<IJobCfg> Jobs => cntrlCfg.Jobs;
     }
 
     ///<summary>Service configurator.</summary>

@@ -54,8 +54,10 @@ namespace Tlabs.JobCntrl.Model.Intern {
         this.jobStarter= jobStarter;
 
         this.jobStarter.Activate+= (this.activationHandler= HandleStarterInvocation);
+        MasterJob.Log.LogDebug("Job[{JP}] registered for activation by starter[{ST}].", this.Name, this.jobStarter.Name);
       }
 
+      public ILog ProcessingLog => throw new NotImplementedException();
 
       public IJob Initialize(string name, string description, IJobProps properties) {
         throw new InvalidOperationException("Already initalized");
@@ -68,8 +70,10 @@ namespace Tlabs.JobCntrl.Model.Intern {
       protected override void Dispose(bool disposing) {
         if (!disposing) return;
         if (null != jobStarter) {
-          if (null != activationHandler)
+          if (null != activationHandler) {
             jobStarter.Activate-= activationHandler;
+            MasterJob.Log.LogDebug("Job[{JP}] de-registered from starter[{ST}].", Name, jobStarter.Name);
+          }
         }
         activationHandler= null;
         jobStarter= null;
@@ -77,31 +81,31 @@ namespace Tlabs.JobCntrl.Model.Intern {
       }
 
 
-      private void HandleStarterInvocation(IStarter srcStarter, IJobProps runProps) {
-        MasterJob.Log.LogInformation("Executing job '{JP}' (activated from starter '{ST}').", this.Name, srcStarter.Name);
-
+      private bool HandleStarterInvocation(IStarter srcStarter, IJobProps runProps) {
+        MasterJob.Log.LogInformation("Executing job '{JP}' (activated from starter[{ST}]).", this.Name, srcStarter.Name);
         var jobStarter= (IStarterActivation)srcStarter;   //must be activated from starter
-        
+        IJob asyncJob= null;
+
         Tlabs.App.RunBackgroundService<IJob, IJobResult>(masterJob.targetType, job => {
-          job= job.Initialize(this.Name, this.Description, this.Properties);
-          return job.Run(runProps);
+          asyncJob= job.Initialize(this.Name, this.Description, this.Properties);
+          return asyncJob.Run(runProps);
         })
         .ContinueWith(jobTsk => {           // and continue with job result
           IJobResult jobResult;
-          try {jobResult= jobTsk.Result; }   // obtain job result from task
-          catch (AggregateException ae) {
-            jobResult= new JobResult(this.Name, ae.InnerException);
+          try {jobResult= jobTsk.GetAwaiter().GetResult(); }   // obtain job result from task
+          catch (Exception e) {
+            jobResult= new JobResult(this.Name, e, asyncJob.ProcessingLog);
           }
           Log.LogInformation("Job '{J}' {RES1}.", jobResult.JobName, jobResult.IsSuccessful ? "finished successfully" : "failed");
           if (!jobResult.IsSuccessful) {
-            Log.LogError("Message from '{JP}': {MSG}", jobResult.JobName, jobResult.Message);
+            Log.LogError("Execution problem from job '{JP}': {MSG}", jobResult.JobName, jobResult.Message);
             var procLog= jobResult.ProcessingLog;
-            if (null != procLog) foreach (var log in procLog.Entries) //push job log to global log
-              Log.LogError("{TM} {STEP}> {MSG}", string.Format("{0:D3} {1:HH:mm:ss,FFF}", log.ElapsedMsec, procLog.EntryTime(log)), log.ProcessStep, log.Message);
+            if (null != procLog && Log.IsEnabled(LogLevel.Debug)) foreach (var log in procLog.Entries) //push job log to global log
+              Log.LogDebug("{TM} {STEP}> {MSG}", string.Format("{0:D3} {1:HH:mm:ss,FFF}", log.ElapsedMsec, procLog.EntryTime(log)), log.ProcessStep, log.Message);
           }
           jobStarter.AddResult(jobResult);
         });
-
+        return true;  //all job activations always return true
       }//HandleStarterInvocation
 
     }//class RuntimeJob

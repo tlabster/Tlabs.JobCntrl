@@ -2,11 +2,11 @@
 using Tlabs.JobCntrl.Model.Intern;
 
 namespace Tlabs.JobCntrl.Config {
-  using PropDictionary= Dictionary<string, object>;
+  using IProps= IReadOnlyDictionary<string, object>;
 
   /// <summary>JobControl configurator.</summary>
   public class JobCntrlConfigurator : JobCntrlCfg, IJobCntrlConfigurator {
-    /// <inherit/>
+    /// <inheritdoc/>
     public JobCntrlCfg JobCntrlCfg => this;
 
     /// <summary>Default ctor.</summary>
@@ -20,8 +20,8 @@ namespace Tlabs.JobCntrl.Config {
       this.ControlCfg.Jobs= new List<JobCfg>();
   }
 
-    /// <summary>Define a <see cref="MasterStarter"/>.</summary>
-    public JobCntrlConfigurator DefineMasterStarter(string name, string description, string type, PropDictionary properties= null) {
+    /// <inheritdoc/>
+    public IJobCntrlConfigurator DefineMasterStarter(string name, string description, string type, IProps properties= null) {
       MasterCfg.Starters.Add(new MasterCfgEntry {
         Name= name,
         Description= description,
@@ -31,8 +31,8 @@ namespace Tlabs.JobCntrl.Config {
       return this;
     }
 
-    /// <summary>Define a <see cref="MasterJob"/>.</summary>
-    public JobCntrlConfigurator DefineMasterJob(string name, string description, string type, PropDictionary properties= null) {
+    /// <inheritdoc/>
+    public IJobCntrlConfigurator DefineMasterJob(string name, string description, string type, IProps properties= null) {
       MasterCfg.Jobs.Add(new MasterCfgEntry {
         Name= name,
         Description= description,
@@ -42,8 +42,8 @@ namespace Tlabs.JobCntrl.Config {
       return this;
     }
 
-    /// <summary>Define a runtime starter.</summary>
-    public JobCntrlConfigurator DefineStarter(string name, string master, string description, PropDictionary properties = null) {
+    /// <inheritdoc/>
+    public IJobCntrlConfigurator DefineStarter(string name, string master, string description, IProps properties = null) {
       this.ControlCfg.Starters.Add(new StarterCfg {
         Master= master,
         Name= name,
@@ -53,8 +53,8 @@ namespace Tlabs.JobCntrl.Config {
       return this;
     }
 
-    /// <summary>Define a runtime job.</summary>
-    public JobCntrlConfigurator DefineJob(string name, string master, string starter, string description, PropDictionary properties = null) {
+    /// <inheritdoc/>
+    public IJobCntrlConfigurator DefineJob(string name, string master, string starter, string description, IProps properties = null) {
       this.ControlCfg.Jobs.Add(new JobCfg {
         Master= master,
         Name= name,

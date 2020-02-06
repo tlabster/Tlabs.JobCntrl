@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Tlabs.Diagnostic;
 
 namespace Tlabs.JobCntrl.Model.Intern {
   using IProps = IReadOnlyDictionary<string, object>;
@@ -11,6 +13,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
   ///<summary>Interface of a runtime-starter instance.</summary>
   public interface IRuntimeStarter : IStarter {
     ///<summary>Event on completion of a starter activation.</summary>
+    ///<remarks>Only fired if there actual job(s) started. </remarks>
     event StarterActivationCompleter ActivationComplete;
 
     ///<summary>Internal starter instance.</summary>
@@ -25,7 +28,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
   }
 
   /// <summary>A <see cref="IStarter"/>'s completion information.</summary>
-  public interface IStarterCompletion {
+  public interface IStarterCompletion : IDisposable {
     /// <summary><see cref="IStarter"/>'s name.</summary>
     string StarterName { get; }
     /// <summary>time of completion.</summary>
@@ -90,7 +93,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
       private RuntimeProxy runtimeProx= new RuntimeProxy();
 
       internal RuntimeStarter(MasterStarter masterStarter) {
-        this.masterStarter= masterStarter;
+        if (null == (this.masterStarter= masterStarter)) throw new ArgumentNullException(nameof(masterStarter));
       }
 
       public event StarterActivator Activate;
@@ -137,10 +140,13 @@ namespace Tlabs.JobCntrl.Model.Intern {
         return this;
       }
 
-      public void DoActivate(IProps invocationProps) {
+      public bool DoActivate(IProps invocationProps) {
         if (null == targetStarter) throw new InvalidOperationException("Already disposed.");
         var start= this.Activate;
-        if (null == start) return;
+        if (null == start) {
+          Log.LogDebug("No manual runtimeStarter[{ST}] activation with no registered job(s).", Name);
+          return false;
+        }
 
         CopyBaseConfigStarterProps(ref invocationProps);
         bool concurrentStart= ConfigProperties.GetBool(invocationProps, MasterStarter.RPROP_PARALLEL_START, false);
@@ -151,13 +157,13 @@ namespace Tlabs.JobCntrl.Model.Intern {
             /* Already pending start invocation.
              * Do not invoke until finished.
              */
-            Log.LogInformation("Completion for Starter '{ST}' pending - cannot activate.", Name);
-            return;
+            Log.LogInformation("Completion for Starter[{ST}] pending - cannot activate.", Name);
+            return false;
           }
           compl= pendingCompl= new StarterCompletion(this, invocationProps);
         }
-        Log.LogInformation("Starter '{ST}' activated.", Name);
-        start(compl, invocationProps);
+        Log.LogInformation("Starter[{ST}] activated.", Name);
+        return start(compl, invocationProps);
       }
 
       /* Copy Starter config. properties with RUN_PROPERTY_PREFIX to the given runProps:
@@ -187,8 +193,10 @@ namespace Tlabs.JobCntrl.Model.Intern {
             fireComplete= internalStartComplete;
           }
         }
-        if (null != fireComplete)
+        if (null != fireComplete) {
           fireComplete(compl);    //fire event with lock on sync held
+          compl.Dispose();
+        }
       }
 
       public bool IsStarted {
@@ -213,26 +221,28 @@ namespace Tlabs.JobCntrl.Model.Intern {
       class RuntimeProxy : IJobControl {
         public IJobControl rt;
 
-        private IJobControl JobControl {
+        private IJobControl jobCntrl {
           get {
             if (null == rt) throw new ObjectDisposedException("RuntimeProxy");
             return rt;
           }
         }
 
-        public IJobControlCfgLoader ConfigLoader => JobControl.ConfigLoader;
+        public IJobControlCfgLoader ConfigLoader => jobCntrl.ConfigLoader;
 
-        public IStarterCompletionPersister CompletionPersister => JobControl.CompletionPersister;
+        public IStarterCompletionPersister CompletionPersister => jobCntrl.CompletionPersister;
 
-        public void Start() => JobControl.Start();
+        public void Init() => jobCntrl.Init();
+        
+        public void Start() => jobCntrl.Start();
 
-        public void Stop() => JobControl.Stop();
+        public void Stop() => jobCntrl.Stop();
 
-        public IMasterCfg MasterModels => JobControl.MasterModels;
+        public IMasterCfg MasterModels => jobCntrl.MasterModels;
 
-        public IReadOnlyDictionary<string, IStarter> Starters => JobControl.Starters;
+        public IReadOnlyDictionary<string, IStarter> Starters => jobCntrl.Starters;
 
-        public IReadOnlyDictionary<string, IJob> Jobs => JobControl.Jobs;
+        public IReadOnlyDictionary<string, IJob> Jobs => jobCntrl.Jobs;
 
         public void Dispose() { rt= null; }
       }
@@ -246,6 +256,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
         public StarterCompletion(RuntimeStarter starter, IProps runProps) {
           this.starter= starter;
           this.runProps= runProps;
+          startActivity(runProps);
         }
 
         #region IStarterCompletion
@@ -271,6 +282,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
         #endregion
 
         void IStarterActivation.AddResult(IJobResult operationResult) {
+          diagSrc.LogEvent("JobResult", operationResult);
           starter.RegisterJobResult(this, operationResult);
         }
 
@@ -286,7 +298,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
 
         IStarter IStarter.Initialize(string name, string description, IProps properties) => throw new InvalidOperationException();
 
-        void IStarter.DoActivate(IProps starterProps) => throw new InvalidOperationException();
+        bool IStarter.DoActivate(IProps starterProps) => throw new InvalidOperationException();
 
         string IModel.Name => starter.Name;
 
@@ -294,8 +306,26 @@ namespace Tlabs.JobCntrl.Model.Intern {
 
         IProps IModel.Properties => runProps;
 
-        void IDisposable.Dispose() { }
+        void IDisposable.Dispose() => stopActivity();
 
+        #region Diagnostic instrumentation
+        private static readonly DiagnosticListener diagSrc= new DiagnosticListener(DiagListenerName.STARTER);
+        private Activity diagActivity;
+
+        void startActivity(IProps runProps) {
+          if (diagSrc.IsEnabled()) {
+            diagActivity= new Activity("JobCntrl.Starter");
+            diagActivity.AddTag("masterStarter.targetType", starter.targetStarter.GetType().FullName);
+            diagActivity.AddPropTags(runProps);
+            diagSrc.StartActivity(diagActivity, this);
+          }
+        }
+        void stopActivity() {
+          if (null != diagActivity)
+            diagSrc.StopActivity(diagActivity, this);
+          diagActivity= null;
+        }
+        #endregion
       }// class StarterCompletion
 
     }//class StarterInstance
