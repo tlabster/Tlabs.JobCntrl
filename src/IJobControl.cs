@@ -11,8 +11,9 @@ namespace Tlabs.JobCntrl {
   using IMasterJobMap= IReadOnlyDictionary<string, MasterJob>;
   using IRuntimeCfg= IEnumerable<Model.IModelCfg>;
   using IJobCfg= IEnumerable<Model.IJobCfg>;
-  using IStarterMap = IReadOnlyDictionary<string, Model.IStarter>;
-  using IJobMap = IReadOnlyDictionary<string, Model.IJob>;
+  using IStarterMap= IReadOnlyDictionary<string, Model.IStarter>;
+  using IJobMap= IReadOnlyDictionary<string, Model.IJob>;
+  using IProps= IReadOnlyDictionary<string, object>;
 
   /// <summary>Interface of a JobControl.</summary>
   public interface IJobControl : IDisposable {
@@ -32,11 +33,16 @@ namespace Tlabs.JobCntrl {
     /// <summary>Dictionary of runtime <see cref="Model.IJob"/>(s).</summary>
     IJobMap Jobs { get; }
 
-    /// <summary>Load and start activating configured starter(s) and job(s).</summary>
+    /// <summary>Initializes the <see cref="IJobControl"/> runtime by loading its configuration.</summary>
     /// <exception cref="JobCntrlException">thrown when JobControl was already started</exception>
+    void Init();
+
+    /// <summary>Load and start activating configured starter(s) and job(s).</summary>
+    /// <exception cref="JobCntrlException">thrown when JobControl was already started or not initialized.</exception>
     void Start();
 
-    /// <summary>Stop executing any starter(s) and jobs(s).</summary>
+    /// <summary>Stop executing any starter(s) and jobs(s) and discards any configuration.</summary>
+    /// <remarks>It is required to invoke <see cref="IJobControl.Init()"/> before re-starting the runtime.</remarks>
     void Stop();
 
   }
@@ -115,6 +121,15 @@ namespace Tlabs.JobCntrl {
   public interface IJobCntrlConfigurator {
     /// <summary>JobControl configuration.</summary>
     JobCntrlCfg JobCntrlCfg { get; }
+
+    /// <summary>Define a <see cref="MasterStarter"/>.</summary>
+    IJobCntrlConfigurator DefineMasterStarter(string name, string description, string type, IProps properties= null);
+    /// <summary>Define a <see cref="MasterJob"/>.</summary>
+    IJobCntrlConfigurator DefineMasterJob(string name, string description, string type, IProps properties= null);
+    /// <summary>Define a runtime starter.</summary>
+    IJobCntrlConfigurator DefineStarter(string name, string master, string description, IProps properties= null);
+    /// <summary>Define a runtime job.</summary>
+    IJobCntrlConfigurator DefineJob(string name, string master, string starter, string description, IProps properties= null);
   }
 
   /// <summary>Interface of a JobControl's configuration persister.</summary>

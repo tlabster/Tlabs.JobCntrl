@@ -94,8 +94,8 @@ namespace Tlabs.JobCntrl.Intern {
           message= jbRes.Message,
           resultObjs= resObj,
           log=   jbRes.ProcessingLog == null
-               ? null
-               : new {
+               ? (object) new { hasProblem= false, entries= new object[0] }
+               : (object) new {
                  hasProblem= jbRes.ProcessingLog.HasProblem,
                  entries= buildLogEntries(jbRes.ProcessingLog, jbRes.ProcessingLog.Entries)
                }

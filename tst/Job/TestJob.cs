@@ -21,9 +21,13 @@ namespace Tlabs.JobCntrl.Test.Job {
       resObj["Job"]= this.Name;
 
       foreach (var pair in runProperties) {
-        Log.InfoFormat("{0}: {1}", pair.Key, pair.Value);
+        Log.InfoFormat("> {0}: {1}", pair.Key, pair.Value);
         resObj[string.Format("{0}-{1}", this.Name, pair.Key)]= pair.Value;
       }
+
+      if (null == ConfigProperties.GetString(runProperties, "TST-RUN-PROP")) throw new AppConfigException("missing run-property: TST-RUN-PROP");
+      if ("jobProp01" != PropertyString("jobProp01")) throw new AppConfigException("missing job-property: jobProp01");
+      
       var minWait= PropertyInt("min-Wait", 300);
       var maxWait= PropertyInt("max-Wait", 800);
       var rnd= new Random(GetHashCode());

@@ -7,7 +7,7 @@ using Tlabs.Test.Common;
 
 namespace Tlabs.JobCntrl.Test {
   [CollectionDefinition("AppTimeScope")]
-  public class AppTimeCollection : ICollectionFixture<AppTimeEnvironment> {
+  public class AppTimeCollection : ICollectionFixture<SvcProvEnvironment> {
     // This class has no code, and is never created. Its purpose is simply
     // to be the place to apply [CollectionDefinition] and all the
     // ICollectionFixture<> interfaces.
@@ -26,11 +26,11 @@ namespace Tlabs.JobCntrl.Test {
     public int jobInitCnt;
     public int jobRunCnt;
     public int jobDisposeCnt;
-    private AppTimeEnvironment appTimeEnv;
+    private SvcProvEnvironment appTimeEnv;
 
     //StarterActivationCompleter completionTest;
 
-    public JobStarterTst(AppTimeEnvironment appTimeEnv) {
+    public JobStarterTst(SvcProvEnvironment appTimeEnv) {
       this.appTimeEnv= appTimeEnv;
       this.masterProps= new ConfigProperties {
         ["Tester"]= this,
@@ -83,7 +83,7 @@ namespace Tlabs.JobCntrl.Test {
     public void BasicStarterTest() {
       var masterStarter= new MasterStarter("0", "0", typeof(TestStarterImpl), null);
       IRuntimeStarter runtimeStarter= (IRuntimeStarter)masterStarter.CreateRuntimeStarter("tstRuntimeStarter", masterStarter.Description, null);
-      runtimeStarter.Activate+= (starter, props) => ++ActivationCnt;
+      runtimeStarter.Activate+= (starter, props) => ++ActivationCnt > 0;
       runtimeStarter.Enabled= true;
       runtimeStarter.DoActivate(null);
       Assert.Equal(1, ActivationCnt);
@@ -120,14 +120,14 @@ namespace Tlabs.JobCntrl.Test {
         Assert.Equal(activationProps.Count+1, props.Count);//, "expected activationProps + StarterTempl props with RUN_PROPERTY_PREFIX...");
         Assert.Equal("xxx", props["activation.Prop"]);//, "bad activation.Prop");
         Assert.Equal(ACTIVATOR_RUN_PROP, props[ACTIVATOR_RUN_PROP]);//, "bad " + ACTIVATOR_RUN_PROP); //run prop w/o prefix
-        runtimeStarter.DoActivate(props);    //must not activate in parallel
+        return runtimeStarter.DoActivate(props);    //must not activate in parallel
       };
       runtimeStarter.DoActivate(activationProps);
       Assert.Equal(1, ActivationCnt);//, "Starter must activate once");
 
       runtimeStarter.IsStarted= false;
       ActivationCnt= 0;
-      runtimeStarter.Activate+= (starter, props) => ++ActivationCnt;
+      runtimeStarter.Activate+= (starter, props) => ++ActivationCnt > 0;
       runtimeStarter.InternalStarter.DoActivate(activationProps);
       Assert.Equal(2, ActivationCnt);//, "Starter must be activated twice");
     }
@@ -151,7 +151,8 @@ namespace Tlabs.JobCntrl.Test {
 
       runtimeStarter.Activate+= (a, props) => {
         if (++ActivationCnt <2)
-          runtimeStarter.DoActivate(activationProps);    //do activate in parallel !
+          return runtimeStarter.DoActivate(activationProps);    //do activate in parallel !
+        return false;
       };
 
       runtimeStarter.DoActivate(activationProps);

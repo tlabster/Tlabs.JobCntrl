@@ -5,6 +5,7 @@ using Tlabs.JobCntrl.Model;
 using Tlabs.JobCntrl.Model.Intern;
 
 namespace Tlabs.JobCntrl.Config {
+  using IProps= IReadOnlyDictionary<string, object>;
 
   /// <summary>JobControl config. loader properties.</summary>
   public class JobCntrlCfgLoaderProperties : Dictionary<string, string>, IJobCntrlCfgLoaderProperties {
@@ -26,10 +27,10 @@ namespace Tlabs.JobCntrl.Config {
 
       public string Description { get; set; }
       public string Type { get; set; }
-      public Dictionary<string, object> Properties { get; set; }
+      public IProps Properties { get; set; }
 
-      public MasterStarter ToMasterStarter() => new MasterStarter(Name, Description ?? "", Misc.Safe.LoadType(Type, "MasterStarter"), Properties);
-      public MasterJob ToMasterJob() => new MasterJob(Name, Description ?? "", Misc.Safe.LoadType(Type, "MasterJob"), Properties);
+      public MasterStarter ToMasterStarter() => new MasterStarter(Name, Description ?? "", Misc.Safe.LoadType(Type, "TargetStarterType"), Properties);
+      public MasterJob ToMasterJob() => new MasterJob(Name, Description ?? "", Misc.Safe.LoadType(Type, "RuntimeJobType"), Properties);
     }
 
     public class ControlConfig {
@@ -41,7 +42,7 @@ namespace Tlabs.JobCntrl.Config {
       public string Master { get; set; }
       public string Name { get; set; }
       public string Description { get; set; }
-      public IReadOnlyDictionary<string, object> Properties { get; set; }
+      public IProps Properties { get; set; }
       public void Dispose() { }
     }
 

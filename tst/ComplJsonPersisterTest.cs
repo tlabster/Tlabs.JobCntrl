@@ -57,6 +57,10 @@ namespace Tlabs.JobCntrl.Test {
         "result message")
       };
 
+      public void Dispose() {
+        throw new NotImplementedException();
+      }
+
       private ILog logger(Action<IJobLogger> log) {
         var logger= new JobLogger(JobLogLevel.Detail);
         log(logger);

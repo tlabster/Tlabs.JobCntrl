@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,79 +11,81 @@ using Tlabs.JobCntrl.Model.Intern;
 
 namespace Tlabs.JobCntrl.Intern {
   /// <summary>Job control execution runtime.</summary>
-  sealed class JobCntrlRuntime : IJobControl {
+  public sealed class JobCntrlRuntime : IJobControl {
     private bool started;
     private ILogger<JobCntrlRuntime> log;
     private IJobControlCfgLoader cfgLoader;
     private RuntimConfig runtimeConfig;
     private IStarterCompletionPersister trigComplPersisiter;
 
+    /// <summary>Ctor from <paramref name="cfgLoader"/> and <paramref name="log"/>.</summary>
     public JobCntrlRuntime(IJobControlCfgLoader cfgLoader, ILogger<JobCntrlRuntime> log) : this(cfgLoader, null, log) { }
 
+    /// <summary>Ctor from <paramref name="cfgLoader"/>, <paramref name="starterCompletionPersister"/> and <paramref name="log"/>.</summary>
     public JobCntrlRuntime(IJobControlCfgLoader cfgLoader, IStarterCompletionPersister starterCompletionPersister, ILogger<JobCntrlRuntime> log) {
       if (null == (this.cfgLoader= cfgLoader)) throw new ArgumentNullException("cfgLoader");
       this.trigComplPersisiter= starterCompletionPersister;
       this.log= log;
     }
 
+    /// <inheritdoc/>
     public IJobControlCfgLoader ConfigLoader { get { return cfgLoader; } }
 
+    /// <inheritdoc/>
     public IStarterCompletionPersister CompletionPersister { get { return trigComplPersisiter; } }
 
+    /// <inheritdoc/>
     public void Init() {
-      // /* Deferre the start-up of the Job Runtime until the GlobalConfig.Components are
-      //  * available. This allows Job/Starters to access component objects during their initialization.
-      //  */
-      // GlobalConfig.AfterComponentInit.BeginInvoke((Action)Start);
-      var runCfg= runtimeConfig;
-      if (null != runCfg) throw new InvalidOperationException("Already initialized.");
+      RuntimConfig runCfg= null;
       try {
-        var masterCfg= cfgLoader.LoadMasterConfiguration();
-        runtimeConfig= runCfg= new RuntimConfig(cfgLoader.LoadRuntimeConfiguration(masterCfg), HandleStarterCompletion);
+        runCfg= Misc.Safe.CompareExchange(ref runtimeConfig,
+                                          null,
+                                          ()=> new RuntimConfig(cfgLoader.LoadRuntimeConfiguration(cfgLoader.LoadMasterConfiguration()), HandleStarterCompletion));
       }
       catch (Exception e) {
-        log.LogError("Error loading runtime configuration: {msg}", e.Message);
-        runtimeConfig?.Dispose();
-        throw;
+        throw new JobCntrlConfigException("Error loading runtime configuration.", e);
       }
-      log.LogInformation("Initialized.");
+      if (null != runCfg) throw new InvalidOperationException($"{nameof(JobCntrlRuntime)} already started.");
+      log.LogInformation("{runtime} configuration initialized.", nameof(JobCntrlRuntime));
     }
 
+    /// <inheritdoc/>
     public void Start() {
       var runCfg= runtimeConfig;
       if (null == runCfg) throw new InvalidOperationException("Not initialized.");
       if (this.started) throw new InvalidOperationException($"{nameof(JobCntrlRuntime)} already started.");
+      lock(runCfg) {
+        log.LogInformation("Starting {module}", this.GetType().AssemblyQualifiedName);
+        try {
+          ((RuntimConfig)runCfg).Configure();
+        }
+        catch (Exception e) {
+          runCfg.Dispose();
+          throw new JobCntrlException("Error starting runtime.", e);
+        }
 
-      log.LogInformation("Starting {module}", this.GetType().AssemblyQualifiedName);
-      try {
-        ((RuntimConfig)runCfg).Configure();
+        log.LogInformation("{n} Master Starter Template(s)", runCfg.MasterModels.Starters.Count);
+        log.LogInformation("{n} Master Job Template(s)", runCfg.MasterModels.Jobs.Count);
+        log.LogInformation("{n} Starter(s)", runCfg.Starters.Count);
+        log.LogInformation("{n} Job(s)", runCfg.Jobs.Count);
+        this.started= true;
       }
-      catch (Exception e) {
-        log.LogError("Error starting {module}: {msg}", GetType().Name, e.Message);
-        runtimeConfig?.Dispose();
-        throw;
-      }
-
-      log.LogInformation("{n} Master Starter Template(s)", runCfg.MasterModels.Starters.Count);
-      log.LogInformation("{n} Master Job Template(s)", runCfg.MasterModels.Jobs.Count);
-      log.LogInformation("{n} Starter(s)", runCfg.Starters.Count);
-      log.LogInformation("{n} Job(s)", runCfg.Jobs.Count);
-      this.started= true;
     }
 
+    /// <inheritdoc/>
     public void Stop() {
-      var runCfg= runtimeConfig;
-      if (null != runCfg) {
+      var runCfg= Interlocked.Exchange(ref runtimeConfig, null);
+      if (null != runCfg) lock(runCfg) {
         if (this.started) log.LogInformation("Stopping {0}", GetType().Name);
+        this.started= false;
         runCfg.Dispose();
       }
-      this.started= false;
-      runtimeConfig= runCfg= null;
-
+      runCfg= null;
       //***TODO: We better should wait until everything went down...
       //System.Threading.Thread.Sleep(3141);
     }
 
+    /// <inheritdoc/>
     public IMasterCfg MasterModels {
       get {
         var rc= runtimeConfig;
@@ -91,6 +94,7 @@ namespace Tlabs.JobCntrl.Intern {
       }
     }
 
+    /// <inheritdoc/>
     public IReadOnlyDictionary<string, IStarter> Starters {
       get {
         var rc= runtimeConfig;
@@ -99,6 +103,7 @@ namespace Tlabs.JobCntrl.Intern {
       }
     }
 
+    /// <inheritdoc/>
     public IReadOnlyDictionary<string, IJob> Jobs {
       get {
         var rc= runtimeConfig;
@@ -108,6 +113,7 @@ namespace Tlabs.JobCntrl.Intern {
     }
 
     #region IDisposable
+    /// <inheritdoc/>
     public void Dispose() {
       Stop();
     }
@@ -178,20 +184,20 @@ namespace Tlabs.JobCntrl.Intern {
       public IReadOnlyDictionary<string, IJob> Jobs => jobs;
 
       public void Dispose() {
-        var starters= this.starters;
-        if (null != starters) {
-          foreach (var pair in starters) {
-            var runStr= pair.Value as IRuntimeStarter;
-            if (null != runStr)
-              runStr.ActivationComplete-= this.handleCompletion;
-            pair.Value.Dispose();
-          }
-          this.starters= starters= null;
-        }
         var jobs= this.jobs;
         if (null != jobs) {
           foreach (var pair in jobs) pair.Value.Dispose();
           this.jobs= jobs= null;
+        }
+        var starters= this.starters;
+        if (null != starters) {
+          foreach (var pair in starters) {
+            var runSt= pair.Value as IRuntimeStarter;
+            if (null != runSt)
+              runSt.ActivationComplete-= this.handleCompletion;
+            pair.Value.Dispose();
+          }
+          this.starters= starters= null;
         }
         cntrlCfg= null;
         masterCfg?.Dispose();
@@ -212,7 +218,7 @@ namespace Tlabs.JobCntrl.Intern {
     public class RuntimeStarter : IConfigurator<MiddlewareContext> {
       ///<inherit/>
       public void AddTo(MiddlewareContext mware, IConfiguration cfg) {
-        var jobCntrl= (JobCntrlRuntime) Tlabs.App.ServiceProv.GetRequiredService<IJobControl>(); //unscoped singleton JobCntrl
+        var jobCntrl= Tlabs.App.ServiceProv.GetRequiredService<IJobControl>(); //unscoped singleton JobCntrl
         jobCntrl.Init();
         jobCntrl.Start();
       }

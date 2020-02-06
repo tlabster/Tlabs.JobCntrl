@@ -4,7 +4,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
   /// <summary>A simple starter to be activated by manual user interaction.</summary>
   /// <remarks>This starter does only activate on 'explicit' invocation of <see cref="IStarter.DoActivate(IReadOnlyDictionary{string, object})"/>.</remarks>
-  sealed class Manual : BaseStarter {
+  public sealed class Manual : BaseStarter {
 
 #region BaseStarter
     /// <summary>Internal init.</summary>

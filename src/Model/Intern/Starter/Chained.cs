@@ -17,11 +17,16 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
   /// with the job name.
   /// </para>
   /// </remarks>
-  class Chained : BaseStarter {
+  public class Chained : BaseStarter {
+    /// <summary>Prop. name for predecessor starter.</summary>
     public const string PROP_COMPLETED_STARTER= "Completed-Starter";
+    /// <summary>Prop. name to specify failure behavior on predecessor.</summary>
     public const string PROP_PREVIOUS_ALLOW_FAIL= "Prev-Allow-Fail";
+    /// <summary>Prop. name to specify the required result status of the predecessor.</summary>
     public const string PROP_ACTIVATE_ON_PREV_STATUS= "Activate-On-Previous-Status";
-    public const string RPROP_STARTERER_COMPLETION= "$Starter-Completion";
+    /// <summary>Prop. name for redecessor starter completion.</summary>
+    public const string RPROP_STARTER_COMPLETION= "$Starter-Completion";
+    /// <summary>Prop. name for redecessor result properties.</summary>
     public const string RPROP_PREVIOUS_RESULTS= "$Previous-Results";
 
     /// <summary>Enumeration of previous job states.</summary>
@@ -37,6 +42,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     private PreviousJobStatus activateOnPreviousStatus;
     private StarterActivationCompleter completionDelegate;
 
+    ///<inheritdoc/>
     protected override IStarter InternalInit() {
       if (string.IsNullOrEmpty(Properties[PROP_COMPLETED_STARTER] as string)) throw new JobCntrlConfigException(PROP_COMPLETED_STARTER + " property missing");
       if (null == Properties[MasterStarter.PROP_RUNTIME]) throw new JobCntrlConfigException(MasterStarter.PROP_RUNTIME + " property missing");
@@ -46,6 +52,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
       return this;
     }
 
+    ///<inheritdoc/>
     protected override void ChangeEnabledState(bool enabled) {
       if (true == (this.isEnabled= enabled)) {
         if (null == this.completedStarter) {
@@ -66,7 +73,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
       /* Prepare the runProps for the chained starter to be activated:
        */
       var runProps= new ConfigProperties(precedingCompletion.RunProperties ?? ConfigProperties.EMPTY);
-      runProps[RPROP_STARTERER_COMPLETION]= precedingCompletion;
+      runProps[RPROP_STARTER_COMPLETION]= precedingCompletion;
       var prevResults= (IDictionary<string, object>)ConfigProperties.GetOrSet(runProps, RPROP_PREVIOUS_RESULTS, new ConfigProperties());
 
       var successResults= new Dictionary<string, object>();
@@ -92,7 +99,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
             return; //One ore more previous jobs failed: do not acivate and propagate any job results
           }
           /* Propagate success results only, ignore any failures:
-            */
+           */
           prevResults.SetRange(successResults);
         break;
         

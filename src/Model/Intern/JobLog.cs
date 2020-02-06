@@ -3,6 +3,11 @@ using System.Collections.Generic;
 
 namespace Tlabs.JobCntrl.Model.Intern {
 
+  ///<summary>Internal job logger implementation.</summary>
+  ///<remarks>NOTE:
+  /// If the log entry limit is exeeded, the entry count is shrinked by removing entries
+  /// with lower priority except problem entries...
+  ///</remarks>
   class JobLogger : IJobLogger {
     internal const string DEFAULT_PROCSTEP= ".";
     internal const int DEFAULT_LIMIT= 1000;
@@ -19,7 +24,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
       var isLevelName= Enum.TryParse<JobLogLevel>(levelName, true, out level);
 
       this.log= new JobLog(level, DEFAULT_LIMIT);
-      if(false == isLevelName)
+      if (false == isLevelName)
         ProblemFormat("Unrecognized log detail '{0}' - default to '{1}'", levelName, level);
     }
 
@@ -49,22 +54,22 @@ namespace Tlabs.JobCntrl.Model.Intern {
     }
 
     public void Info(string message) {
-      if(log.Level >= JobLogLevel.Info)
+      if (log.Level >= JobLogLevel.Info)
         log.AddLast(new JobLog.Entry(this, JobLogLevel.Info, message));
     }
 
     public void InfoFormat(string format, object arg1) {
-      if(log.Level >= JobLogLevel.Info)
+      if (log.Level >= JobLogLevel.Info)
         log.AddLast(new JobLog.Entry(this, JobLogLevel.Info, string.Format(format, arg1)));
     }
 
     public void InfoFormat(string format, object arg1, object arg2) {
-      if(log.Level >= JobLogLevel.Info)
+      if (log.Level >= JobLogLevel.Info)
         log.AddLast(new JobLog.Entry(this, JobLogLevel.Info, string.Format(format, arg1, arg2)));
     }
 
     public void InfoFormat(string format, params object[] args) {
-      if(log.Level >= JobLogLevel.Info)
+      if (log.Level >= JobLogLevel.Info)
         log.AddLast(new JobLog.Entry(this, JobLogLevel.Info, string.Format(format, args)));
     }
 
@@ -109,7 +114,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
 
       public DateTime EntryTime(ILogEntry logEntry) {
         var dt= new DateTime(startAt.Ticks + logEntry.ElapsedMsec * TimeSpan.TicksPerMillisecond, DateTimeKind.Utc);
-        return dt.ToLocalTime();
+        return App.TimeInfo.ToAppTime(dt);
       }
 
       public IEnumerable<ILogEntry> Entries { get { return this; } }
@@ -140,6 +145,8 @@ namespace Tlabs.JobCntrl.Model.Intern {
 
         public string Message { get { return msg; } }
 
+        /* Shrink the log from start (oldest) by removing any entries with level 'lev'.
+         */
         private static void ShrinkLogByLevel(JobLog log, JobLogLevel lev) {
           log.level= lev;
           LinkedListNode<ILogEntry> next= null;
