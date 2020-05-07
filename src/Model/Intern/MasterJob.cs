@@ -82,7 +82,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
 
 
       private bool HandleStarterInvocation(IStarter srcStarter, IJobProps runProps) {
-        MasterJob.Log.LogInformation("Executing job '{JP}' (activated from starter[{ST}]).", this.Name, srcStarter.Name);
+        MasterJob.Log.LogInformation("Executing job '{JOB}' (activated from starter[{ST}], jobType: {JT}).", this.Name, srcStarter.Name, masterJob.targetType.Name);
         var jobStarter= (IStarterActivation)srcStarter;   //must be activated from starter
         IJob asyncJob= null;
 
@@ -91,18 +91,26 @@ namespace Tlabs.JobCntrl.Model.Intern {
           return asyncJob.Run(runProps);
         })
         .ContinueWith(jobTsk => {           // and continue with job result
-          IJobResult jobResult;
+          IJobResult jobResult= null;
           try {jobResult= jobTsk.GetAwaiter().GetResult(); }   // obtain job result from task
           catch (Exception e) {
-            jobResult= new JobResult(this.Name, e, asyncJob.ProcessingLog);
+            jobResult= new JobResult(this?.Name, e, asyncJob?.ProcessingLog);
           }
-          Log.LogInformation("Job '{J}' {RES1}.", jobResult.JobName, jobResult.IsSuccessful ? "finished successfully" : "failed");
-          if (!jobResult.IsSuccessful) {
-            Log.LogError("Execution problem from job '{JP}': {MSG}", jobResult.JobName, jobResult.Message);
-            var procLog= jobResult.ProcessingLog;
-            if (null != procLog && Log.IsEnabled(LogLevel.Debug)) foreach (var log in procLog.Entries) //push job log to global log
-              Log.LogDebug("{TM} {STEP}> {MSG}", string.Format("{0:D3} {1:HH:mm:ss,FFF}", log.ElapsedMsec, procLog.EntryTime(log)), log.ProcessStep, log.Message);
+          try {
+            Log.LogInformation("Job '{J}' {RES1}.", jobResult.JobName, jobResult.IsSuccessful ? "finished successfully" : "failed");
+            if (!jobResult.IsSuccessful) {
+              Log.LogError("Execution problem from job '{JP}': {MSG}", jobResult.JobName, jobResult.Message);
+              var procLog= jobResult.ProcessingLog;
+              if (null != procLog && Log.IsEnabled(LogLevel.Debug)) foreach (var log in procLog.Entries) //push job log to global log
+                Log.LogDebug("{TM} {STEP}> {MSG}", string.Format("{0:D3} {1:HH:mm:ss,FFF}", log.ElapsedMsec, procLog.EntryTime(log)), log.ProcessStep, log.Message);
+            }
           }
+          catch (Exception e) {
+            //Make sure we always add a result to the starter - else the starter would hang !
+            jobResult= new JobResult(this?.Name, e, null);
+            MasterJob.Log.LogError(e, "Error returning job {JOB}'s result ({MSG}).", this?.Name, e?.Message);
+          }
+          //Make sure we always add a result to the starter - else the starter would hang !
           jobStarter.AddResult(jobResult);
         });
         return true;  //all job activations always return true
