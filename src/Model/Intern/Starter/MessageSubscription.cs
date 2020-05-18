@@ -150,14 +150,15 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     private class StarterCompletionAwaiter {
       readonly MessageSubscription starter;
       readonly SyncMonitor<IStarterCompletion> syncRes= new SyncMonitor<IStarterCompletion>();
-      // Dictionary<string, object> runProps;
+      readonly BackgroundJobMessage message;
       StarterActivationCompleter complHandler;
       public StarterCompletionAwaiter(MessageSubscription starter, BackgroundJobMessage message) {
         this.starter= starter;
+        this.message= message;
         starter.myRuntimeStarter.ActivationComplete+= (this.complHandler= this.complAwaiter);
         if (!starter.doActivateWithMessage(message)) {
           MessageSubscription.log.LogDebug("Returning empty result (w/o any async await) - because of no job activation(s).");
-          complAwaiter(new EmptyComplResult(starter));
+          complAwaiter(new EmptyComplResult(starter, message));
         }
       }
 
@@ -167,18 +168,28 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
       }}
 
       private void complAwaiter(IStarterCompletion cmpl) {
+        if (! matchingCompletion(cmpl)) return;
+
         starter.myRuntimeStarter.ActivationComplete-= complHandler;
         if (null != cmpl) MessageSubscription.log.LogDebug("Signaling of pending starter[{name}] completion.", cmpl.StarterName);
         syncRes.SignalPermanent(cmpl);
       }
+      
+      bool matchingCompletion(IStarterCompletion cmpl) {
+        foreach(var pair in cmpl.RunProperties) {
+          if (! message.JobProperties.TryGetValue(pair.Key, out var pval) || pval != pair.Value) return false;
+        }
+        return true;
+      }
+
       public override string ToString() => "[" + nameof(StarterCompletionAwaiter) + "]";
     }
 
     class EmptyComplResult : IStarterCompletion {
-      public EmptyComplResult(IStarter rtStarter) {
+      public EmptyComplResult(IStarter rtStarter, BackgroundJobMessage message) {
         this.StarterName= rtStarter.Name;
         this.Time= App.TimeInfo.Now;
-        this.RunProperties= rtStarter.Properties;
+        this.RunProperties= message.JobProperties;
       }
       public string StarterName { get; }
       public DateTime Time { get; }
