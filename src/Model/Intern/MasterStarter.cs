@@ -87,6 +87,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
       private MasterStarter masterStarter;
       private IStarter targetStarter;
       private StarterActivator targetStartHandler;
+      private bool concurrentStart;
       private StarterCompletion pendingCompl;
       private object sync= new object();
       private event StarterActivationCompleter internalStartComplete;
@@ -127,6 +128,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
         targetStarter= (IStarter)Tlabs.App.CreateResolvedInstance(this.masterStarter.targetType);
         var props= new ConfigProperties(masterStarter.Properties, properties);
         props[PROP_RUNTIME]= runtimeProx;
+        this.concurrentStart= ConfigProperties.GetBool(props, MasterStarter.RPROP_PARALLEL_START, false);
         targetStarter= targetStarter.Initialize(name, description, props.AsReadOnly());
 
 
@@ -149,7 +151,6 @@ namespace Tlabs.JobCntrl.Model.Intern {
         }
 
         CopyBaseConfigStarterProps(ref invocationProps);
-        bool concurrentStart= ConfigProperties.GetBool(invocationProps, MasterStarter.RPROP_PARALLEL_START, false);
 
         StarterCompletion compl;
         lock (sync) {
