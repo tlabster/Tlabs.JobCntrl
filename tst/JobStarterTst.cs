@@ -136,7 +136,7 @@ namespace Tlabs.JobCntrl.Test {
     public void ConcurrentActivationStarterTest() {
       starterInitCnt= ActivationCnt= 0;
       var masterStarter= new MasterStarter("tstMasterStarter", "Test starter description", typeof(TestStarterImpl), new Dictionary<string, object> {
-        [BaseStarter.RUN_PROPERTY_PREFIX + MasterStarter.RPROP_PARALLEL_START]= true //allow parallel activation
+        [MasterStarter.RPROP_PARALLEL_START]= true //allow parallel activation
       });
 
       var starterRunProps= new Dictionary<string, object> {
