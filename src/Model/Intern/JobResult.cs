@@ -14,7 +14,6 @@ namespace Tlabs.JobCntrl.Model.Intern {
     }
 
     public static IEqualityComparer<IJobResult> EqComparer= new EqComp();
-
     private string jobName;
     private DateTime endAt= App.TimeInfo.Now;
     private string message;
@@ -33,6 +32,9 @@ namespace Tlabs.JobCntrl.Model.Intern {
     }
     public JobResult(string name, Exception e, ILog log= null) : this(name, false, log) {
       this.message= e.ToString();
+      this.resultObjs= new Dictionary<string, object> {
+        [JobCntrlException.JOB_RESULT_KEY]= e
+      };
     }
 
     public JobResult(string name, IReadOnlyDictionary<string, object> resultObjs, string message, ILog log= null) : this(name, message, log) {

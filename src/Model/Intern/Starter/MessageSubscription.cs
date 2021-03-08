@@ -74,7 +74,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
         if (reqForResult) {
           this.myRuntimeStarter= getMyRuntimeStarter();
-          Func<BackgroundJobMessage, IStarterCompletion> msgHandler= this.handleMessageCompletion;
+          Func<BackgroundJobMessage, Task<IStarterCompletion>> msgHandler= this.handleAsyncMessageCompletion;
           msgBroker.SubscribeRequest<BackgroundJobMessage, IStarterCompletion>(subscriptionSubject, msgHandler);
           subscriptionHandler= msgHandler;
         }
@@ -113,11 +113,33 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
       }, cancelSource, TaskContinuationOptions.NotOnCanceled);
     }
 
-    private IStarterCompletion handleMessageCompletion(BackgroundJobMessage message) {
-      var res= new StarterCompletionAwaiter(this, message).Result;
-      if (log.IsEnabled(LogLevel.Debug)) log.LogDebug("Starter[{name}] completed with {cnt} result(s).", Name, res.JobResults.Count());
-      return res;
+    private Task<IStarterCompletion> handleAsyncMessageCompletion(BackgroundJobMessage message) {
+      var complSrc= new TaskCompletionSource<IStarterCompletion>();
+      StarterActivationCompleter complHandler= null;
+      complHandler= (completion) => {
+        if (! isMatchingCompletion(message, completion)) return;
+
+        if (log.IsEnabled(LogLevel.Debug)) log.LogDebug("Starter[{name}] completed with {cnt} result(s).", Name, completion.JobResults.Count());
+        myRuntimeStarter.ActivationComplete-= complHandler;
+        complSrc.TrySetResult(completion);
+      };
+
+      myRuntimeStarter.ActivationComplete+= complHandler;
+      if (!doActivateWithMessage(message)) {
+        log.LogDebug("Returning empty result (w/o any async await) - because of no job activation(s).");
+        complHandler(new EmptyComplResult(this, message));
+      }
+
+      return complSrc.Task;
     }
+
+    bool isMatchingCompletion(BackgroundJobMessage message, IStarterCompletion cmpl) {
+      foreach (var pair in cmpl.RunProperties) {
+        if (!message.JobProperties.TryGetValue(pair.Key, out var pval) || pval != pair.Value) return false;
+      }
+      return true;
+    }
+
 
     private void setCancelSource() {
       CancellationTokenSource cts0, cts;
@@ -147,38 +169,12 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
       msgBroker= null;
     }
 
-    private class StarterCompletionAwaiter {
-      readonly MessageSubscription starter;
-      readonly SyncMonitor<IStarterCompletion> syncRes= new SyncMonitor<IStarterCompletion>();
-      // Dictionary<string, object> runProps;
-      StarterActivationCompleter complHandler;
-      public StarterCompletionAwaiter(MessageSubscription starter, BackgroundJobMessage message) {
-        this.starter= starter;
-        starter.myRuntimeStarter.ActivationComplete+= (this.complHandler= this.complAwaiter);
-        if (!starter.doActivateWithMessage(message)) {
-          MessageSubscription.log.LogDebug("Returning empty result (w/o any async await) - because of no job activation(s).");
-          complAwaiter(new EmptyComplResult(starter));
-        }
-      }
-
-      public IStarterCompletion Result { get {
-        if (!syncRes.IsSignaled) MessageSubscription.log.LogDebug("Starter[{name}] waiting for activated job(s) to complete.", starter.Name);
-        return syncRes.WaitForSignal();
-      }}
-
-      private void complAwaiter(IStarterCompletion cmpl) {
-        starter.myRuntimeStarter.ActivationComplete-= complHandler;
-        if (null != cmpl) MessageSubscription.log.LogDebug("Signaling of pending starter[{name}] completion.", cmpl.StarterName);
-        syncRes.SignalPermanent(cmpl);
-      }
-      public override string ToString() => "[" + nameof(StarterCompletionAwaiter) + "]";
-    }
 
     class EmptyComplResult : IStarterCompletion {
-      public EmptyComplResult(IStarter rtStarter) {
+      public EmptyComplResult(IStarter rtStarter, BackgroundJobMessage message) {
         this.StarterName= rtStarter.Name;
         this.Time= App.TimeInfo.Now;
-        this.RunProperties= rtStarter.Properties;
+        this.RunProperties= message.JobProperties;
       }
       public string StarterName { get; }
       public DateTime Time { get; }

@@ -3,6 +3,8 @@
 namespace Tlabs.JobCntrl {
   /// <summary>Exception thrown from operation runtime.</summary>
   public class JobCntrlException : GeneralException {
+    /// <summary>Exception key in <see cref="Tlabs.JobCntrl.Model.IJobResult.ResultObjects"/></summary>
+    public const string JOB_RESULT_KEY= "_#" + nameof(JobCntrlException);
 
     /// <summary>Default ctor</summary>
     public JobCntrlException() : base() { }
