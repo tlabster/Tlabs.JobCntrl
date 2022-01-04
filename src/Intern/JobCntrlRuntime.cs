@@ -213,17 +213,6 @@ namespace Tlabs.JobCntrl.Intern {
         svcColl.AddSingleton<IJobControl, JobCntrlRuntime>();
       }
     }
-
-    ///<summary>Runtime starter.</summary>
-    public class RuntimeStarter : IConfigurator<MiddlewareContext> {
-      ///<inherit/>
-      public void AddTo(MiddlewareContext mware, IConfiguration cfg) {
-        var jobCntrl= Tlabs.App.ServiceProv.GetRequiredService<IJobControl>(); //unscoped singleton JobCntrl
-        jobCntrl.Init();
-        jobCntrl.Start();
-      }
-    }
-
   }//class JobCntrlRuntime
 
 }
