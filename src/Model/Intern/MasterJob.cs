@@ -90,9 +90,13 @@ namespace Tlabs.JobCntrl.Model.Intern {
           asyncJob= job.Initialize(this.Name, this.Description, this.Properties);
           return asyncJob.Run(runProps);
         })
-        .ContinueWith(jobTsk => {           // and continue with job result
+        .ContinueWith(async jobTsk => {   // and continue with job result
           IJobResult jobResult= null;
-          try {jobResult= jobTsk.GetAwaiter().GetResult(); }   // obtain job result from task
+          try {
+            jobResult= await jobTsk;
+            while (jobResult.IsAsyncResult)   // support async. job result(s)
+              jobResult= await jobResult.AsyncResult;   //unwrap async result
+          }
           catch (Exception e) {
             jobResult= new JobResult(this?.Name, e, asyncJob?.ProcessingLog);
           }
@@ -102,7 +106,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
               Log.LogError("Execution problem from job '{JP}': {MSG}", jobResult.JobName, jobResult.Message);
               var procLog= jobResult.ProcessingLog;
               if (null != procLog && Log.IsEnabled(LogLevel.Debug)) foreach (var log in procLog.Entries) //push job log to global log
-                Log.LogDebug("{TM} {STEP}> {MSG}", string.Format("{0:D3} {1:HH:mm:ss,FFF}", log.ElapsedMsec, procLog.EntryTime(log)), log.ProcessStep, log.Message);
+                if (Log.IsEnabled(LogLevel.Debug)) Log.LogDebug("{TM} {STEP}> {MSG}", $"{log.ElapsedMsec:D3} {procLog.EntryTime(log):HH:mm:ss,FFF}", log.ProcessStep, log.Message);
             }
           }
           catch (Exception e) {

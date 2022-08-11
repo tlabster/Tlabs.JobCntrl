@@ -28,12 +28,13 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
         directoryPath= Path.Combine(Path.GetDirectoryName(Tlabs.App.MainEntryPath), directoryPath);
       
       var watchDir= new DirectoryInfo(directoryPath);
-      if (false == watchDir.Exists) throw new JobCntrlConfigException(string.Format("Directory does not exist: '{0}'", watchDir.FullName));
+      if (false == watchDir.Exists) throw new JobCntrlConfigException($"Directory does not exist: '{watchDir.FullName}'");
 
       var fileName= PropertyString(PROP_FILE_NAME, "").Trim();
 
-      this.fileWatcher= new System.IO.FileSystemWatcher(watchDir.FullName, fileName);
-      this.fileWatcher.NotifyFilter= NotifyFilters.LastWrite;
+      this.fileWatcher= new System.IO.FileSystemWatcher(watchDir.FullName, fileName) {
+        NotifyFilter= NotifyFilters.LastWrite
+      };
       this.fileWatcher.Changed+= FileWatcherEventHandler;
       ChangeEnabledState(this.isEnabled);
       return this;
@@ -60,8 +61,9 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
        */
       if (0 == new FileInfo(fsArgs.FullPath).Length) return;
 
-      var runProps= new ConfigProperties();
-      runProps[RPROP_FILE_PATH]= fsArgs.FullPath;
+      var runProps = new ConfigProperties {
+        [RPROP_FILE_PATH]= fsArgs.FullPath
+      };
       this.DoActivate(runProps);
     }
 
@@ -72,7 +74,9 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
       var fwatch= fileWatcher;
       if (disposing && null != fwatch) fwatch.Dispose();
+#pragma warning disable //help gc
       fileWatcher= fwatch= null;
+#pragma warning restore
     }
   }
 }

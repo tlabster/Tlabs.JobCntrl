@@ -46,7 +46,7 @@ namespace Tlabs.JobCntrl.Model {
     /// <summary>Base init.</summary>
     /// <remarks>Used to support implementing Job.Initialize()...</remarks>
     protected void InitBase(string name, string description, IProps properties) {
-      if (null == (this.name= name)) throw new ArgumentNullException("name");
+      if (null == (this.name= name)) throw new ArgumentNullException(nameof(name));
       this.description= description ?? "";
       this.properties= properties ?? ConfigProperties.EMPTY;
     }

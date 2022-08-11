@@ -12,7 +12,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
     internal const string DEFAULT_PROCSTEP= ".";
     internal const int DEFAULT_LIMIT= 1000;
     private string currentProcStep= DEFAULT_PROCSTEP;
-    private JobLog log;
+    readonly JobLog log;
 
 
     public JobLogger(JobLogLevel level) : this(level, DEFAULT_LIMIT) { }
@@ -20,8 +20,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
     public JobLogger(JobLogLevel level, int logLimit) { this.log= new JobLog(level, logLimit); }
 
     public JobLogger(string levelName) {
-      JobLogLevel level;
-      var isLevelName= Enum.TryParse<JobLogLevel>(levelName, true, out level);
+      var isLevelName= Enum.TryParse<JobLogLevel>(levelName, true, out var level);
 
       this.log= new JobLog(level, DEFAULT_LIMIT);
       if (false == isLevelName)
@@ -39,17 +38,17 @@ namespace Tlabs.JobCntrl.Model.Intern {
     }
 
     public void ProblemFormat(string format, object arg1) {
-      log.AddLast(new JobLog.Entry(this, JobLogLevel.Problem, string.Format(format, arg1)));
+      log.AddLast(new JobLog.Entry(this, JobLogLevel.Problem, string.Format(App.DfltFormat,format, arg1)));
       ++log.ProblemCount;
     }
 
     public void ProblemFormat(string format, object arg1, object arg2) {
-      log.AddLast(new JobLog.Entry(this, JobLogLevel.Problem, string.Format(format, arg1, arg2)));
+      log.AddLast(new JobLog.Entry(this, JobLogLevel.Problem, string.Format(App.DfltFormat,format, arg1, arg2)));
       ++log.ProblemCount;
     }
 
     public void ProblemFormat(string format, params object[] args) {
-      log.AddLast(new JobLog.Entry(this, JobLogLevel.Problem, string.Format(format, args)));
+      log.AddLast(new JobLog.Entry(this, JobLogLevel.Problem, string.Format(App.DfltFormat,format, args)));
       ++log.ProblemCount;
     }
 
@@ -60,17 +59,17 @@ namespace Tlabs.JobCntrl.Model.Intern {
 
     public void InfoFormat(string format, object arg1) {
       if (log.Level >= JobLogLevel.Info)
-        log.AddLast(new JobLog.Entry(this, JobLogLevel.Info, string.Format(format, arg1)));
+        log.AddLast(new JobLog.Entry(this, JobLogLevel.Info, string.Format(App.DfltFormat,format, arg1)));
     }
 
     public void InfoFormat(string format, object arg1, object arg2) {
       if (log.Level >= JobLogLevel.Info)
-        log.AddLast(new JobLog.Entry(this, JobLogLevel.Info, string.Format(format, arg1, arg2)));
+        log.AddLast(new JobLog.Entry(this, JobLogLevel.Info, string.Format(App.DfltFormat,format, arg1, arg2)));
     }
 
     public void InfoFormat(string format, params object[] args) {
       if (log.Level >= JobLogLevel.Info)
-        log.AddLast(new JobLog.Entry(this, JobLogLevel.Info, string.Format(format, args)));
+        log.AddLast(new JobLog.Entry(this, JobLogLevel.Info, string.Format(App.DfltFormat,format, args)));
     }
 
     public void Detail(string message) {
@@ -80,27 +79,27 @@ namespace Tlabs.JobCntrl.Model.Intern {
 
     public void DetailFormat(string format, object arg1) {
       if (log.Level >= JobLogLevel.Detail)
-        log.AddLast(new JobLog.Entry(this, JobLogLevel.Detail, string.Format(format, arg1)));
+        log.AddLast(new JobLog.Entry(this, JobLogLevel.Detail, string.Format(App.DfltFormat,format, arg1)));
     }
 
     public void DetailFormat(string format, object arg1, object arg2) {
       if (log.Level >= JobLogLevel.Detail)
-        log.AddLast(new JobLog.Entry(this, JobLogLevel.Detail, string.Format(format, arg1, arg2)));
+        log.AddLast(new JobLog.Entry(this, JobLogLevel.Detail, string.Format(App.DfltFormat,format, arg1, arg2)));
     }
 
     public void DetailFormat(string format, params object[] args) {
       if (log.Level >= JobLogLevel.Detail)
-        log.AddLast(new JobLog.Entry(this, JobLogLevel.Detail, string.Format(format, args)));
+        log.AddLast(new JobLog.Entry(this, JobLogLevel.Detail, string.Format(App.DfltFormat,format, args)));
     }
 
     public ILog Log { get { return log; } }
 
 
     private class JobLog : LinkedList<ILogEntry>, ILog {
-      private DateTime startAt= DateTime.UtcNow;
+      readonly DateTime startAt= DateTime.UtcNow;
+      readonly int limit;
       private JobLogLevel level;
       public int ProblemCount;
-      private int limit;
 
       public JobLog(JobLogLevel level, int logLimit) { this.level= level; this.limit= logLimit; }
 
@@ -120,10 +119,10 @@ namespace Tlabs.JobCntrl.Model.Intern {
       public IEnumerable<ILogEntry> Entries { get { return this; } }
 
       public class Entry : ILogEntry {
-        private int elapsed;
-        private JobLogLevel level;
-        private string procStep;
-        private string msg;
+        readonly int elapsed;
+        readonly JobLogLevel level;
+        readonly string procStep;
+        readonly string msg;
 
         public Entry(JobLogger logger, JobLogLevel level, string msg) {
           JobLog log= logger.log;
@@ -149,7 +148,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
          */
         private static void ShrinkLogByLevel(JobLog log, JobLogLevel lev) {
           log.level= lev;
-          LinkedListNode<ILogEntry> next= null;
+          LinkedListNode<ILogEntry> next;
           for (var node= log.First; null != node; node= next) {
             next= node.Next;
             if (lev < node.Value.Level)

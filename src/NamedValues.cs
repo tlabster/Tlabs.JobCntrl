@@ -7,7 +7,7 @@ namespace Tlabs.JobCntrl {
   /// Class that provides a dictionary of values with type <typeparamref name="T"/>, that are keyed by
   /// names (strings).
   /// </summary>
-  /// <remarks>The keys (names) of this dictionary are compared case insensitive (according to the invaruant culture).
+  /// <remarks>The keys (names) of this dictionary are compared case insensitive.
   /// i.e. the two keys 'name' and 'nAMe' will return the same value...</remarks>
   /// <typeparam name="T">Type parameter for the contained named values</typeparam>
   public class NamedValues<T> : Dictionary<string, T> {
@@ -20,7 +20,7 @@ namespace Tlabs.JobCntrl {
     /// <summary>Create a new dictionary with the initial <paramref name="capacity"/>.</summary>
     public NamedValues(int capacity) : base(capacity, StringComparer.OrdinalIgnoreCase) { }
 
-    /// <summary>Create a new dictionary with the contents of <paramref name="other"/>.</summary>
+    /// <summary>Create a new dictionary with the contents of optional <paramref name="other"/>.</summary>
     public NamedValues(IEnumerable<KeyValuePair<string, T>> other) : base(DEFAULT_CAPACITY, StringComparer.OrdinalIgnoreCase) {
       this.SetRange(other);
     }

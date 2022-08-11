@@ -22,7 +22,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     /// <summary>Name of a property that specifies a optional buffer time in miliseconds.</summary>
     public const string PROP_BUFFER= "Buffer-Ms";
     /// <summary>Name of a property that enables returning a result.</summary>
-    ///<remarks>If this property is set to <c>true</c> <see cref="BackgroundJobMessage"/> must be published with <see cref="IMessageBroker.PublishRequest{TRet}(string, object, int)"/>!!</remarks>
+    ///<remarks>If this property is set to <c>true</c> <see cref="AutomationJobMessage"/> must be published with <see cref="IMessageBroker.PublishRequest{TRet}(string, object, int)"/>!!</remarks>
     public const string PROP_RET_RESULT= "Return-Result";
 
     private static readonly ILogger log= App.Logger<MessageSubscription>();
@@ -74,13 +74,13 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
         if (reqForResult) {
           this.myRuntimeStarter= getMyRuntimeStarter();
-          Func<BackgroundJobMessage, Task<IStarterCompletion>> msgHandler= this.handleAsyncMessageCompletion;
-          msgBroker.SubscribeRequest<BackgroundJobMessage, IStarterCompletion>(subscriptionSubject, msgHandler);
+          Func<AutomationJobMessage, Task<IStarterCompletion>> msgHandler= this.handleAsyncMessageCompletion;
+          msgBroker.SubscribeRequest<AutomationJobMessage, IStarterCompletion>(subscriptionSubject, msgHandler);
           subscriptionHandler= msgHandler;
         }
         else {
-          Action<BackgroundJobMessage> msgHandler= this.messageHandler;
-          msgBroker.Subscribe<BackgroundJobMessage>(subscriptionSubject, msgHandler);
+          Action<AutomationJobMessage> msgHandler= this.messageHandler;
+          msgBroker.Subscribe<AutomationJobMessage>(subscriptionSubject, msgHandler);
           subscriptionHandler= msgHandler;
         }
         return enabled;
@@ -96,7 +96,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
       return rtStarter;
     }
 
-    private void messageHandler(BackgroundJobMessage message) {
+    private void messageHandler(AutomationJobMessage message) {
       if (0 == buffer) {
         doActivateWithMessage(message);
         return;
@@ -113,16 +113,15 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
       }, cancelSource, TaskContinuationOptions.NotOnCanceled);
     }
 
-    private Task<IStarterCompletion> handleAsyncMessageCompletion(BackgroundJobMessage message) {
+    private Task<IStarterCompletion> handleAsyncMessageCompletion(AutomationJobMessage message) {
       var complSrc= new TaskCompletionSource<IStarterCompletion>();
-      StarterActivationCompleter complHandler= null;
-      complHandler= (completion) => {
-        if (! isMatchingCompletion(message, completion)) return;
+      void complHandler(IStarterCompletion completion) {
+        if (!isMatchingCompletion(message, completion)) return;
 
         if (log.IsEnabled(LogLevel.Debug)) log.LogDebug("Starter[{name}] completed with {cnt} result(s).", Name, completion.JobResults.Count());
         myRuntimeStarter.ActivationComplete-= complHandler;
         complSrc.TrySetResult(completion);
-      };
+      }
 
       myRuntimeStarter.ActivationComplete+= complHandler;
       if (!doActivateWithMessage(message)) {
@@ -133,13 +132,12 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
       return complSrc.Task;
     }
 
-    bool isMatchingCompletion(BackgroundJobMessage message, IStarterCompletion cmpl) {
+    static bool isMatchingCompletion(AutomationJobMessage message, IStarterCompletion cmpl) {
       foreach (var pair in cmpl.RunProperties) {
         if (!message.JobProperties.TryGetValue(pair.Key, out var pval) || pval != pair.Value) return false;
       }
       return true;
     }
-
 
     private void setCancelSource() {
       CancellationTokenSource cts0, cts;
@@ -154,7 +152,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
       }
     }
 
-    private bool doActivateWithMessage(BackgroundJobMessage message) {
+    private bool doActivateWithMessage(AutomationJobMessage message) {
       log.LogDebug("Starter[{name}] activation from message source: '{source}'.", Name, message.Source);
       var activated= this.DoActivate(message.JobProperties);
       log.LogDebug("Job(s) activated from Starter[{name}]: '{activated}'.", Name, activated);
@@ -171,7 +169,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
 
     class EmptyComplResult : IStarterCompletion {
-      public EmptyComplResult(IStarter rtStarter, BackgroundJobMessage message) {
+      public EmptyComplResult(IStarter rtStarter, AutomationJobMessage message) {
         this.StarterName= rtStarter.Name;
         this.Time= App.TimeInfo.Now;
         this.RunProperties= message.JobProperties;

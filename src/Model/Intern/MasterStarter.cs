@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Tlabs.Diagnostic;
 
@@ -10,11 +11,23 @@ namespace Tlabs.JobCntrl.Model.Intern {
   ///<summary>Delegate to be invoked on completion of a starter activation.</summary>
   public delegate void StarterActivationCompleter(IStarterCompletion completion);
 
+  ///<summary>Delegate to be invoked before starter activation.</summary>
+  ///<remarks>Starter activation is canceled if <see cref="IStarterActivationRequest.Canceled"/>.</remarks>
+  public delegate void StarterActivationMonitor(IStarterActivationRequest activationReq);
+
   ///<summary>Interface of a runtime-starter instance.</summary>
   public interface IRuntimeStarter : IStarter {
+    ///<summary>Event on (before) starter activation.</summary>
+    ///<remarks>Only fired if there are actual job(s) started. </remarks>
+    event StarterActivationMonitor ActivationTriggered;
+
     ///<summary>Event on completion of a starter activation.</summary>
-    ///<remarks>Only fired if there actual job(s) started. </remarks>
+    ///<remarks>Only fired if there are actual job(s) started. </remarks>
     event StarterActivationCompleter ActivationComplete;
+
+    ///<summary>Event after finished completion of a starter activation.</summary>
+    ///<remarks>Only fired if there are actual job(s) started. </remarks>
+    event StarterActivationCompleter ActivationFinalized;
 
     ///<summary>Internal starter instance.</summary>
     IStarter InternalStarter { get; }
@@ -23,8 +36,16 @@ namespace Tlabs.JobCntrl.Model.Intern {
     bool IsStarted { get; set; }
   }
 
-  internal interface IStarterActivation : IStarter {
+  /// <summary>A <see cref="IStarter"/>'s activation information.</summary>
+  public  interface IStarterActivation : IStarter {
+    /// <summary>Register a <see cref="IJobResult"/>.</summary>
     void AddResult(IJobResult jobResult);
+  }
+
+  /// <summary>A <see cref="IStarter"/>'s activation request.</summary>
+  public interface IStarterActivationRequest : IStarter {
+    /// <summary>Activation canceled.</summary>
+    bool Canceled { get; set; }
   }
 
   /// <summary>A <see cref="IStarter"/>'s completion information.</summary>
@@ -84,29 +105,29 @@ namespace Tlabs.JobCntrl.Model.Intern {
     /// <see cref="IRuntimeStarter.ActivationComplete"/> event, when all started jobs have completed.</para>
     /// </remarks>
     sealed class RuntimeStarter : IRuntimeStarter {
-      private MasterStarter masterStarter;
+      readonly MasterStarter masterStarter;
       private IStarter targetStarter;
       private StarterActivator targetStartHandler;
       private bool concurrentStart;
       private StarterCompletion pendingCompl;
-      private object sync= new object();
-      private event StarterActivationCompleter internalStartComplete;
-      private RuntimeProxy runtimeProx= new RuntimeProxy();
+      readonly object sync= new();
+      private event StarterActivationCompleter internalStarterFinished;
+      readonly RuntimeProxy runtimeProx= new();
 
       internal RuntimeStarter(MasterStarter masterStarter) {
         if (null == (this.masterStarter= masterStarter)) throw new ArgumentNullException(nameof(masterStarter));
       }
 
       public event StarterActivator Activate;
-
-      public event StarterActivationCompleter ActivationComplete {
+      public event StarterActivationCompleter ActivationComplete;
+      public event StarterActivationMonitor ActivationTriggered;
+      public event StarterActivationCompleter ActivationFinalized {
         add {
-          internalStartComplete+= value;
-          var runtime= value.Target as IJobControl;
-          if (null != runtime)
+          internalStarterFinished+= value;
+          if (value.Target is IJobControl runtime)
             runtimeProx.rt= runtime;
         }
-        remove { internalStartComplete-= value; }
+        remove { internalStarterFinished-= value; }
       }
 
       public string Name { get { return targetStarter.Name; } }
@@ -126,8 +147,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
         /* Create a targetStarter instance from masterStarter:
          */
         targetStarter= (IStarter)Tlabs.App.CreateResolvedInstance(this.masterStarter.targetType);
-        var props= new ConfigProperties(masterStarter.Properties, properties);
-        props[PROP_RUNTIME]= runtimeProx;
+        var props= new ConfigProperties(masterStarter.Properties, properties){ [PROP_RUNTIME]= runtimeProx };
         this.concurrentStart= ConfigProperties.GetBool(props, MasterStarter.RPROP_PARALLEL_START, false);
         targetStarter= targetStarter.Initialize(name, description, props.AsReadOnly());
 
@@ -163,8 +183,19 @@ namespace Tlabs.JobCntrl.Model.Intern {
           }
           compl= pendingCompl= new StarterCompletion(this, invocationProps);
         }
-        Log.LogInformation("Starter[{ST}] activated.", Name);
+
+        if (activationCancled(new StarterActivationRequest(targetStarter, invocationProps))) {
+          Log.LogInformation("Starter[{ST}] activation canceled.", Name);
+          return false;
+        }
+
+        Log.LogInformation("Activating Starter[{ST}]", Name);
         return start(compl, invocationProps);
+      }
+
+      private bool activationCancled(StarterActivationRequest actRequest) {
+        ActivationTriggered?.Invoke(actRequest);
+        return actRequest.Canceled;
       }
 
       /* Copy Starter config. properties with RUN_PROPERTY_PREFIX to the given runProps:
@@ -179,25 +210,20 @@ namespace Tlabs.JobCntrl.Model.Intern {
       }
 
       private void RegisterJobResult(IStarterCompletion compl, IJobResult jobResult) {
-        StarterActivationCompleter fireComplete= null;
 
         lock (sync) {
           var jobStartResults= (ISet<IJobResult>)compl.JobResults;
           jobStartResults.Add(jobResult);
           var start= this.Activate;
-          if (null == start) return;
-          if (jobStartResults.Count == start.GetInvocationList().Length) {
-            /* All started jobs have completed:
-             */
-            Log.LogInformation("Starter '{ST}' activation completed.", Name);
-            pendingCompl= null;
-            fireComplete= internalStartComplete;
-          }
+          if (   null == start
+              || jobStartResults.Count != start.GetInvocationList().Length) return; // jobs no all completed
+          pendingCompl= null;
         }
-        if (null != fireComplete) {
-          fireComplete(compl);    //fire event with lock on sync held
-          compl.Dispose();
-        }
+        Log.LogInformation("Starter '{ST}' activation completed.", Name);
+        //fire events with released lock:
+        ActivationComplete?.Invoke(compl);
+        internalStarterFinished?.Invoke(compl);   //fire finished after possible chained activations
+        compl.Dispose();
       }
 
       public bool IsStarted {
@@ -216,7 +242,9 @@ namespace Tlabs.JobCntrl.Model.Intern {
           trig.Dispose();
         }
         runtimeProx.Dispose();
+#pragma warning disable //help gc
         targetStarter= trig= null;
+#pragma warning restore
       }
 
       class RuntimeProxy : IJobControl {
@@ -245,13 +273,51 @@ namespace Tlabs.JobCntrl.Model.Intern {
 
         public IReadOnlyDictionary<string, IJob> Jobs => jobCntrl.Jobs;
 
+        public int CurrentJobActivationCount => jobCntrl.CurrentJobActivationCount;
+
+        public Task FullCompletion => jobCntrl.FullCompletion;
+
         public void Dispose() { rt= null; }
       }
 
+      class StarterActivationRequest : IStarterActivationRequest {
+        readonly IStarter starter;
+        readonly IProps runProps;
+
+        public StarterActivationRequest(IStarter starter, IProps runProps) {
+          this.starter= starter;
+          this.runProps= runProps;
+        }
+
+        public bool Canceled { get; set; }
+
+        bool IStarter.Enabled {
+          get => true;
+          set { throw new InvalidOperationException(); }
+        }
+
+        string IModel.Name => starter.Name;
+
+        string IModel.Description => starter.Description;
+
+        IProps IModel.Properties => runProps;
+
+        public event StarterActivator Activate {
+          add => throw new InvalidOperationException("no activation");
+          remove => throw new InvalidOperationException("no activation");
+        }
+
+        public void Dispose() { }
+
+        public bool DoActivate(IProps activationProps) => throw new InvalidOperationException("already activated");
+
+        public IStarter Initialize(string name, string description, IProps properties) => throw new InvalidOperationException("already initalized");
+      }
+
       class StarterCompletion : IStarterCompletion, IStarterActivation {
-        RuntimeStarter starter;
-        DateTime time= App.TimeInfo.Now;
-        IProps runProps;
+        readonly RuntimeStarter starter;
+        readonly DateTime time= App.TimeInfo.Now;
+        readonly IProps runProps;
         readonly HashSet<IJobResult> opResults= new HashSet<IJobResult>(JobResult.EqComparer);
 
         public StarterCompletion(RuntimeStarter starter, IProps runProps) {

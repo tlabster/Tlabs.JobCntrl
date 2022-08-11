@@ -56,8 +56,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     protected override void ChangeEnabledState(bool enabled) {
       if (true == (this.isEnabled= enabled)) {
         if (null == this.completedStarter) {
-          var runtime= Properties[MasterStarter.PROP_RUNTIME] as IJobControl;
-          if (null != runtime) {
+          if (Properties[MasterStarter.PROP_RUNTIME] is IJobControl runtime) {
             var starterName= Properties[PROP_COMPLETED_STARTER] as string ?? "?";
             this.completedStarter= (IRuntimeStarter)runtime.Starters[starterName];
           }
@@ -72,8 +71,9 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     private void HandlePrecedingStarterCompletion(IStarterCompletion precedingCompletion) {
       /* Prepare the runProps for the chained starter to be activated:
        */
-      var runProps= new ConfigProperties(precedingCompletion.RunProperties ?? ConfigProperties.EMPTY);
-      runProps[RPROP_STARTER_COMPLETION]= precedingCompletion;
+      var runProps = new ConfigProperties(precedingCompletion.RunProperties ?? ConfigProperties.EMPTY) {
+        [RPROP_STARTER_COMPLETION]= precedingCompletion
+      };
       var prevResults= (IDictionary<string, object>)ConfigProperties.GetOrSet(runProps, RPROP_PREVIOUS_RESULTS, new ConfigProperties());
 
       var successResults= new Dictionary<string, object>();
@@ -108,7 +108,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
           prevResults.SetRange(jobFailures);
         break;
 
-        default: throw new InvalidOperationException(string.Format("Unexpected previous job result-status: {0}", activateOnPreviousStatus));
+        default: throw new InvalidOperationException($"Unexpected previous job result-status: {activateOnPreviousStatus}");
       }
 
       DoActivate(runProps);

@@ -19,12 +19,12 @@ namespace Tlabs.JobCntrl.Model {
 
     /// <summary>Custom KeyNotFound handler</summary>
     protected override T HandleKeyNotFound(string key) {
-      throw new JobCntrlException(string.Format("Undefined {0}: '{1}'.", typeof(T).Name, key));
+      throw new JobCntrlException($"Undefined {typeof(T).Name}: '{key}'.");
     }
 
     /// <summary>Custom DuplicateKey handler</summary>
     protected override void HandleDuplicateKey(string key, T newValue) {
-      throw new JobCntrlException(string.Format("Error loading {0} with duplicate ID '{1}'.", typeof(T).Name, key));
+      throw new JobCntrlException($"Error loading {typeof(T).Name} with duplicate ID '{key}'.");
     }
   }
 

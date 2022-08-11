@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Tlabs.JobCntrl.Model {
   using IJobProps= IReadOnlyDictionary<string, object>;
@@ -67,8 +68,23 @@ namespace Tlabs.JobCntrl.Model {
     }
 
     /// <summary>Create a <see cref="IJobResult"/> with <paramref name="resultObjs"/> and (optional) <paramref name="message"/>.</summary>
-    protected IJobResult CreateResult(IDictionary<string, object> resultObjs, string message= null) {
-      return new Intern.JobResult(this.Name, resultObjs.AsReadOnly(), message, this.log.Log);
+    protected IJobResult CreateResult(IReadOnlyDictionary<string, object> resultObjs, string message = null) {
+      return new Intern.JobResult(this.Name, resultObjs, message, this.log.Log);
+    }
+
+    /// <summary>Create async <see cref="IJobResult"/> from <paramref name="resTsk"/> with callback <paramref name="buildJobResult"/>.</summary>
+    protected IJobResult CreateAsyncResult<TRes>(Task<TRes> resTsk, Func<TRes, IJobResult> buildJobResult) {
+      var cmplSrc= new TaskCompletionSource<IJobResult>();
+      resTsk.ContinueWith(async tsk => {
+        try {
+          var res= await tsk;
+          cmplSrc.TrySetResult(buildJobResult(res));
+        }
+        catch (Exception e) {
+          cmplSrc.TrySetResult(CreateResult(e));
+        }
+      });
+      return new Intern.JobResult(cmplSrc.Task);
     }
 
     /// <summary>Create a <see cref="IJobResult"/> from exception.</summary>

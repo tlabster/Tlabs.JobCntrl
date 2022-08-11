@@ -18,10 +18,10 @@ namespace Tlabs.JobCntrl.Intern {
     public const string DEFAULT_PERSISTENCE_PATH= "data/jobStartLog";
     static readonly Encoding INFO_ENCODING= Encoding.UTF8;
     const string CONTENT_TYPE= "text/json";
-    private DirectoryInfo complLogDir;
-    private object synchLog= new object();
-    private bool logResObjects;
-    private bool append;
+    readonly DirectoryInfo complLogDir;
+    readonly object synchLog= new object();
+    readonly bool logResObjects;
+    readonly bool append;
     /// <summary>Default Ctor.</summary>
     public StarterCompletionJsonPersister() : this(DEFAULT_PERSISTENCE_PATH, logResObjects: false, append: false) { }
 
@@ -38,7 +38,7 @@ namespace Tlabs.JobCntrl.Intern {
     /// <summary>Event fired when a starter completion info has been persisted.</summary>
     public event Action<IStarterCompletionPersister, Model.Intern.IStarterCompletion, object> CompletionInfoPersisted;
 
-    ///<inherit/>
+    ///<inheritdoc/>
     public Stream GetLastCompletionInfo(string starterName, out string contentType, out Encoding infoEncoding) {
       lock (synchLog) {
         contentType= CONTENT_TYPE;
@@ -50,7 +50,7 @@ namespace Tlabs.JobCntrl.Intern {
       }
     }
 
-    ///<inherit/>
+    ///<inheritdoc/>
     public void StoreCompletionInfo(Model.Intern.IStarterCompletion starterCompletion) {
       FileInfo logFile;
       lock (synchLog) logFile= SerializeStarterCompletion(starterCompletion);
@@ -67,9 +67,8 @@ namespace Tlabs.JobCntrl.Intern {
       var json= JsonFormat.CreateDynSerializer();
       using (var strm= File.Open(logFile.FullName, append ? FileMode.Append : FileMode.Create)) {
         json.WriteObj(strm, buildStarterCompletion(starterCompletion));
-        using (var wr= new StreamWriter(strm)) {
-          if (append) wr.WriteLine(",\f");
-        }
+        using var wr = new StreamWriter(strm);
+        if (append) wr.WriteLine(",\f");
       }
       return logFile;
     }
@@ -94,7 +93,7 @@ namespace Tlabs.JobCntrl.Intern {
           message= jbRes.Message,
           resultObjs= resObj,
           log=   jbRes.ProcessingLog == null
-               ? (object) new { hasProblem= false, entries= new object[0] }
+               ? (object) new { hasProblem= false, entries= Array.Empty<object>() }
                : (object) new {
                  hasProblem= jbRes.ProcessingLog.HasProblem,
                  entries= buildLogEntries(jbRes.ProcessingLog, jbRes.ProcessingLog.Entries)
@@ -103,11 +102,11 @@ namespace Tlabs.JobCntrl.Intern {
       }
     }
 
-    private IEnumerable buildLogEntries(Model.ILog log, IEnumerable<Model.ILogEntry> entries) {
+    static IEnumerable buildLogEntries(Model.ILog log, IEnumerable<Model.ILogEntry> entries) {
       foreach (var ent in entries) {
         yield return new {
           lev= ent.Level.ToString(),
-          time= string.Format("{0:HH:mm:ss,FFF}", log.EntryTime(ent)),
+          time= string.Format(App.DfltFormat, "{0:HH:mm:ss,FFF}", log.EntryTime(ent)),
           step= ent.ProcessStep,
           msg= ent.Message
         };
@@ -121,23 +120,25 @@ namespace Tlabs.JobCntrl.Intern {
       ///<summary>Append to log property.</summary>
       public const string APPEND= "append";
 
-      private string logPath;
-      private bool append;
+      readonly string logPath;
+      readonly bool append;
       ///<summary>Default ctor.</summary>
       public Configurator() : this(null) { }
 
       ///<summary>Ctor from <paramref name="config"/>.</summary>
       public Configurator(IDictionary<string, string> config) {
-        config= config ?? new Dictionary<string, string>();
+        config??= new Dictionary<string, string>();
         if (   config.TryGetValue(LOG_PATH, out logPath)
             && !Path.IsPathRooted(logPath))
           logPath= Path.Combine(App.ContentRoot, logPath);
-        string val;
-        if (config.TryGetValue(APPEND, out val))
+        if (config.TryGetValue(APPEND, out var val)) {
+#pragma warning disable CA1806  //default for append is false
           Boolean.TryParse(val, out append);
+#pragma warning restore CA1806
+        }
       }
 
-      ///<inherit/>
+      ///<inheritdoc/>
       public void AddTo(IServiceCollection svcColl, IConfiguration cfg) {
         svcColl.AddSingleton<IStarterCompletionPersister>(new StarterCompletionJsonPersister(logPath, false, append));
       }

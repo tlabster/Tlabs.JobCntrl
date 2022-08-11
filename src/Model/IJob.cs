@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Tlabs.JobCntrl.Model {
   using IJobProps= IReadOnlyDictionary<string, object>;
@@ -22,6 +23,10 @@ namespace Tlabs.JobCntrl.Model {
   }
 
   /// <summary>Result of a Job run.</summary>
+  /// <remarks>Optionaly an async. result is supported.
+  /// <para>If <see cref="IsAsyncResult"/> is true all other properties except <see cref="AsyncResult"/> are throwning <see cref="InvalidOperationException"/>
+  ///.</para>
+  /// </remarks>
   public interface IJobResult {
 
     /// <summary>Job name.</summary>
@@ -41,6 +46,15 @@ namespace Tlabs.JobCntrl.Model {
 
     /// <summary>Job's processing log.</summary>
     ILog ProcessingLog { get; }
+
+    /// <summary>True if asynchronous result.</summary>
+    bool IsAsyncResult { get; }
+
+    /// <summary>If <see cref="IsAsyncResult"/> true returns a <c>Task&gt;IJobResult></c>.</summary>
+    /// <exception cref="InvalidOperationException">
+    /// If <see cref="IsAsyncResult"/> is false.
+    /// </exception>
+    Task<IJobResult> AsyncResult { get; }
 
   }
 

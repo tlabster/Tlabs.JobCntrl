@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
 using Tlabs.Config;
 using Tlabs.JobCntrl.Model;
 using Tlabs.JobCntrl.Model.Intern;
@@ -12,20 +13,24 @@ using Tlabs.JobCntrl.Model.Intern;
 namespace Tlabs.JobCntrl.Intern {
   /// <summary>Job control execution runtime.</summary>
   public sealed class JobCntrlRuntime : IJobControl {
+    static readonly ILogger<JobCntrlRuntime> log= App.Logger<JobCntrlRuntime>();
+    static readonly IJobControlCfgLoader EMPTY_LOADER= new Config.JobCntrlCfgLoader(null);
+    static readonly RuntimeConfig EMPTY_CFG= new RuntimeConfig(EMPTY_LOADER.LoadRuntimeConfiguration(EMPTY_LOADER.LoadMasterConfiguration()));
+
+    readonly IJobControlCfgLoader cfgLoader;
+    readonly IStarterCompletionPersister trigComplPersisiter;
     private bool started;
-    private ILogger<JobCntrlRuntime> log;
-    private IJobControlCfgLoader cfgLoader;
-    private RuntimConfig runtimeConfig;
-    private IStarterCompletionPersister trigComplPersisiter;
+    private RuntimeConfig runtimeConfig;
+    private int starterActivationCnt;
+    private TaskCompletionSource completionSrc;
 
-    /// <summary>Ctor from <paramref name="cfgLoader"/> and <paramref name="log"/>.</summary>
-    public JobCntrlRuntime(IJobControlCfgLoader cfgLoader, ILogger<JobCntrlRuntime> log) : this(cfgLoader, null, log) { }
+    /// <summary>Ctor from <paramref name="cfgLoader"/>.</summary>
+    public JobCntrlRuntime(IJobControlCfgLoader cfgLoader) : this(cfgLoader, null) { }
 
-    /// <summary>Ctor from <paramref name="cfgLoader"/>, <paramref name="starterCompletionPersister"/> and <paramref name="log"/>.</summary>
-    public JobCntrlRuntime(IJobControlCfgLoader cfgLoader, IStarterCompletionPersister starterCompletionPersister, ILogger<JobCntrlRuntime> log) {
-      if (null == (this.cfgLoader= cfgLoader)) throw new ArgumentNullException("cfgLoader");
+    /// <summary>Ctor from <paramref name="cfgLoader"/> and <paramref name="starterCompletionPersister"/>.</summary>
+    public JobCntrlRuntime(IJobControlCfgLoader cfgLoader, IStarterCompletionPersister starterCompletionPersister) {
+      if (null == (this.cfgLoader= cfgLoader)) throw new ArgumentNullException(nameof(cfgLoader));
       this.trigComplPersisiter= starterCompletionPersister;
-      this.log= log;
     }
 
     /// <inheritdoc/>
@@ -36,11 +41,14 @@ namespace Tlabs.JobCntrl.Intern {
 
     /// <inheritdoc/>
     public void Init() {
-      RuntimConfig runCfg= null;
+      RuntimeConfig runCfg= null;
       try {
         runCfg= Misc.Safe.CompareExchange(ref runtimeConfig,
                                           null,
-                                          ()=> new RuntimConfig(cfgLoader.LoadRuntimeConfiguration(cfgLoader.LoadMasterConfiguration()), HandleStarterCompletion));
+                                          ()=> new RuntimeConfig(cfgLoader.LoadRuntimeConfiguration(cfgLoader.LoadMasterConfiguration()),
+                                                                monitorStarterActivation,
+                                                                notifyStarterFinished)
+        );
       }
       catch (Exception e) {
         throw new JobCntrlConfigException("Error loading runtime configuration.", e);
@@ -53,11 +61,11 @@ namespace Tlabs.JobCntrl.Intern {
     public void Start() {
       var runCfg= runtimeConfig;
       if (null == runCfg) throw new InvalidOperationException("Not initialized.");
-      if (this.started) throw new InvalidOperationException($"{nameof(JobCntrlRuntime)} already started.");
       lock(runCfg) {
+        if (this.started) throw new InvalidOperationException($"{nameof(JobCntrlRuntime)} already started.");
         log.LogInformation("Starting {module}", this.GetType().AssemblyQualifiedName);
         try {
-          ((RuntimConfig)runCfg).Configure();
+          ((RuntimeConfig)runCfg).Configure();
         }
         catch (Exception e) {
           runCfg.Dispose();
@@ -74,15 +82,17 @@ namespace Tlabs.JobCntrl.Intern {
 
     /// <inheritdoc/>
     public void Stop() {
-      var runCfg= Interlocked.Exchange(ref runtimeConfig, null);
+      var runCfg= Interlocked.Exchange(ref runtimeConfig, EMPTY_CFG);
       if (null != runCfg) lock(runCfg) {
-        if (this.started) log.LogInformation("Stopping {0}", GetType().Name);
+        if (this.started) log.LogInformation("Stopping {name}", GetType().Name);
         this.started= false;
+        if (CurrentJobActivationCount > 0) {
+          log.LogInformation("Waiting for {cnt} pending job avtivations to complete...", CurrentJobActivationCount);
+          FullCompletion.GetAwaiter().GetResult();
+        }
         runCfg.Dispose();
+        runtimeConfig= null;    //enable initalization
       }
-      runCfg= null;
-      //***TODO: We better should wait until everything went down...
-      //System.Threading.Thread.Sleep(3141);
     }
 
     /// <inheritdoc/>
@@ -112,6 +122,12 @@ namespace Tlabs.JobCntrl.Intern {
       }
     }
 
+    /// <inheritdoc/>
+    public int CurrentJobActivationCount => starterActivationCnt;
+
+    /// <inheritdoc/>
+    public Task FullCompletion => completionSrc?.Task ?? Task.CompletedTask;
+
     #region IDisposable
     /// <inheritdoc/>
     public void Dispose() {
@@ -119,10 +135,17 @@ namespace Tlabs.JobCntrl.Intern {
     }
     #endregion
 
-    private void HandleStarterCompletion(IStarterCompletion starterCompletion) {
-      if (null == trigComplPersisiter) return;
+    private void monitorStarterActivation(IStarterActivationRequest actRequest) {
+      if (1 == Interlocked.Increment(ref this.starterActivationCnt))
+        Interlocked.Exchange(ref completionSrc, new TaskCompletionSource());
+    }
 
-      Task.Run(() => trigComplPersisiter.StoreCompletionInfo(starterCompletion)); //fire and forget: store starterCompletion asynch.
+    private void notifyStarterFinished(IStarterCompletion starterCompletion) {
+      if (0 == Interlocked.Decrement(ref this.starterActivationCnt))
+        completionSrc?.TrySetResult();    //notify full completion
+
+      if (null != trigComplPersisiter)
+        Task.Run(() => trigComplPersisiter.StoreCompletionInfo(starterCompletion)); //fire and forget: store starterCompletion asynch.
     }
 
     private sealed class MasterConfig : IMasterCfg, IDisposable {
@@ -135,23 +158,28 @@ namespace Tlabs.JobCntrl.Intern {
         if (null == c) return;
         foreach (var pair in c.Jobs) pair.Value.Dispose();
         foreach (var pair in c.Starters) pair.Value.Dispose();
+        #pragma warning disable IDE0059 //help gc
         cfg= c= null;
       }
     }
 
-    private sealed class RuntimConfig : IDisposable {
+    private sealed class RuntimeConfig : IDisposable {
       private MasterConfig masterCfg;
       private IJobControlCfg cntrlCfg;
       private ModelDictionary<IStarter> starters;
       private ModelDictionary<IJob> jobs;
 
+      readonly StarterActivationMonitor handleActivation;
+      readonly StarterActivationCompleter handleFinished;
 
-      private StarterActivationCompleter handleCompletion;
-
-      public RuntimConfig(IJobControlCfg cntrlCfg, StarterActivationCompleter starterCompletionHandler) {
+      public RuntimeConfig(IJobControlCfg cntrlCfg,
+                          StarterActivationMonitor starterActivationMonitor= null,
+                          StarterActivationCompleter starterFinishedHandler= null)
+      {
         this.masterCfg= new MasterConfig(cntrlCfg.MasterModels);
         this.cntrlCfg= cntrlCfg;
-        this.handleCompletion= starterCompletionHandler;
+        this.handleActivation= starterActivationMonitor;
+        this.handleFinished= starterFinishedHandler;
 
         this.starters= new ModelDictionary<IStarter>();
         this.jobs= new ModelDictionary<IJob>();
@@ -164,7 +192,8 @@ namespace Tlabs.JobCntrl.Intern {
           var masterStarter= masterCfg.Starters[cfgStarter.Master];
           var runStarter= masterStarter.CreateRuntimeStarter(cfgStarter.Name, cfgStarter.Description, cfgStarter.Properties);
           this.starters.Add(runStarter.Name, runStarter);
-          runStarter.ActivationComplete+= this.handleCompletion;
+          if (null != this.handleActivation) runStarter.ActivationTriggered+= this.handleActivation;
+          if (null != this.handleFinished) runStarter.ActivationFinalized+= this.handleFinished;
           runStarter.Enabled= true;
         }
 
@@ -191,11 +220,10 @@ namespace Tlabs.JobCntrl.Intern {
         }
         var starters= this.starters;
         if (null != starters) {
-          foreach (var pair in starters) {
-            var runSt= pair.Value as IRuntimeStarter;
-            if (null != runSt)
-              runSt.ActivationComplete-= this.handleCompletion;
-            pair.Value.Dispose();
+          foreach (var pair in starters) if (pair.Value is IRuntimeStarter runSt) {
+            if (null != this.handleActivation) runSt.ActivationTriggered-= this.handleActivation;
+            if (null != this.handleFinished) runSt.ActivationComplete-= this.handleFinished;
+            runSt.Dispose();
           }
           this.starters= starters= null;
         }
@@ -208,7 +236,7 @@ namespace Tlabs.JobCntrl.Intern {
 
     ///<summary>Service configurator.</summary>
     public class Configurator : IConfigurator<IServiceCollection> {
-      ///<inherit/>
+      ///<inheritdoc/>
       public void AddTo(IServiceCollection svcColl, IConfiguration cfg) {
         svcColl.AddSingleton<IJobControl, JobCntrlRuntime>();
       }

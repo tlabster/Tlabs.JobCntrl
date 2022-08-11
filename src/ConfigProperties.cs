@@ -12,9 +12,8 @@ namespace Tlabs.JobCntrl {
 
     /// <summary>Return a property's string value or <paramref name="defaultVal"/> if not existing or not a string.</summary>
     public static string GetString(IReadOnlyDictionary<string, object> properties, string propKey, string defaultVal) {
-      object val;
       string retStr;
-      if (properties.TryGetValue(propKey, out val))
+      if (properties.TryGetValue(propKey, out var val))
         return string.IsNullOrEmpty(retStr= val as string) ? defaultVal : retStr;
       return defaultVal;
     }
@@ -26,8 +25,7 @@ namespace Tlabs.JobCntrl {
 
     /// <summary>Return a property's integer value or <paramref name="defaultVal"/> if not existing or not convertible to int.</summary>
     public static int GetInt(IReadOnlyDictionary<string, object> properties, string propKey, int defaultVal) {
-      object val;
-      if (properties.TryGetValue(propKey, out val)) try {
+      if (properties.TryGetValue(propKey, out var val)) try {
           return ((IConvertible)val).ToInt32(System.Globalization.NumberFormatInfo.InvariantInfo);
         }
         catch (Exception e) when (NoDisastrousCondition(e)) { /* return defaultVal */ } 
@@ -36,8 +34,7 @@ namespace Tlabs.JobCntrl {
 
     /// <summary>Return a property's boolean value or <paramref name="defaultVal"/> if not existing or not convertible to bool.</summary>
     public static bool GetBool(IReadOnlyDictionary<string, object> properties, string propKey, bool defaultVal) {
-      object val;
-      if (properties.TryGetValue(propKey, out val)) try {
+      if (properties.TryGetValue(propKey, out var val)) try {
           return ((IConvertible)val).ToBoolean(System.Globalization.NumberFormatInfo.InvariantInfo);
         }
         catch (Exception e) when (NoDisastrousCondition(e)) { /* return defaultVal */ } 
@@ -46,17 +43,15 @@ namespace Tlabs.JobCntrl {
 
     /// <summary>Return a property's value or <paramref name="defaultVal"/> if not existing - in that case is also set as new properties value.</summary>
     public static object GetOrSet(IDictionary<string, object> properties, string propKey, object defaultVal) {
-      object val;
-      if (!properties.TryGetValue(propKey, out val))
+      if (!properties.TryGetValue(propKey, out var val))
         properties[propKey]= (val= defaultVal);
       return val;
     }
 
     /// <summary>Return a writable version of the dictionary.</summary>
     public static IDictionary<string, object> Writeable(IReadOnlyDictionary<string, object> props) {
-      if ( null == props) new ConfigProperties();
-      var dictProp= props as IDictionary<string, object>;
-      return null == dictProp || dictProp.IsReadOnly ? new ConfigProperties(props) : dictProp;
+      props??= new ConfigProperties();
+      return props is not IDictionary<string, object> dictProp || dictProp.IsReadOnly ? new ConfigProperties(props) : dictProp;
     }
 
     /// <summary>Tries to resolve a value from (optionaly) nested properties dictionaries.</summary>
@@ -95,15 +90,13 @@ namespace Tlabs.JobCntrl {
     /// <returns>The resolved property value given by the <paramref name="propSpecifier"/> or if could not be resolved as a property, the
     /// <paramref name="propSpecifier"/> it self.</returns>
     public static object ResolvedProperty(IReadOnlyDictionary<string, object> properties, string propSpecifier) {
-      string dummy;
-      object o,
-             propVal= propSpecifier;  //default return
+      object propVal= propSpecifier;  //default return
       if (   null == propSpecifier
           || propSpecifier.Length < 3
           || '[' != propSpecifier[0]
-          || ']' != propSpecifier[propSpecifier.Length-1]) return propVal;
+          || ']' != propSpecifier[^1]) return propVal;
 
-      if (TryResolveValue(properties, propSpecifier.Substring(1, propSpecifier.Length-2), out o, out dummy))
+      if (TryResolveValue(properties, propSpecifier[1..^1], out var o, out var _))
         propVal= o;
 
       return propVal;
@@ -130,12 +123,11 @@ namespace Tlabs.JobCntrl {
       IDictionary<string, object> dict;
       int l= 0;
       foreach (string ktok in keyToks) {
-        object o;
         if(++l == keyToks.Length) {
           valDict[resolvedKey= ktok]= val;
           return true;
         }
-        if (!valDict.TryGetValue((resolvedKey= ktok), out o)) {
+        if (!valDict.TryGetValue((resolvedKey= ktok), out var o)) {
           valDict[ktok]= dict= new NamedValues<object>();
           valDict= dict;
           continue;
@@ -164,12 +156,12 @@ namespace Tlabs.JobCntrl {
 
     /// <summary>Custom KeyNotFound handler</summary>
     protected override object HandleKeyNotFound(string key) {
-      throw new AppConfigException(string.Format("Undefined configuration property: '{0}'.", key));
+      throw new AppConfigException($"Undefined configuration property: '{key}'.");
     }
 
     /// <summary>Custom DuplicateKey handler</summary>
     protected override void HandleDuplicateKey(string key, object newValue) {
-      throw new AppConfigException(string.Format("Error adding duplicate configuration property: '{0}'.", key));
+      throw new AppConfigException($"Error adding duplicate configuration property: '{key}'.");
     }
   }//class ConfigProperties
 

@@ -2,6 +2,7 @@
 using System.IO;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 
 using Tlabs.JobCntrl.Model.Intern;
 using Tlabs.JobCntrl.Config;
@@ -17,6 +18,12 @@ namespace Tlabs.JobCntrl {
 
   /// <summary>Interface of a JobControl.</summary>
   public interface IJobControl : IDisposable {
+
+    /// <summary>Current number of (starter) activation(s).</summary>
+    int CurrentJobActivationCount { get; }
+
+    /// <summary>Returns a <see cref="Task"/> that completes once <see cref="CurrentJobActivationCount"/> is 0>.</summary>
+    Task FullCompletion { get; }
 
     /// <summary>Returns the <see cref="IJobControlCfgLoader"/> used by the JobControl to load it's configuration.</summary>
     IJobControlCfgLoader ConfigLoader { get; }

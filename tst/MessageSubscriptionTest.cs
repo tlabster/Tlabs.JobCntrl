@@ -21,18 +21,18 @@ namespace Tlabs.JobCntrl.Test {
     RTStarter rtStarter;
     
     string subscriptionSubject;
-    Action<BackgroundJobMessage> subscriptionHandler;
-    Func<BackgroundJobMessage, Task<IStarterCompletion>> subRequestHandler;
+    Action<AutomationJobMessage> subscriptionHandler;
+    Func<AutomationJobMessage, Task<IStarterCompletion>> subRequestHandler;
 
     public MessageSubscriptionTest(SvcProvEnvironment appTimeEnv) {
       this.appTimeEnv= appTimeEnv;
       var brokerMock= new Mock<IMessageBroker>();
       brokerMock.Setup(b => b.Unsubscribe(It.IsAny<Delegate>()));
       brokerMock.Setup(b => b.Publish(It.IsAny<string>(), It.IsAny<object>()));
-      brokerMock.Setup(b => b.Subscribe<BackgroundJobMessage>(It.IsAny<string>(), It.IsAny<Action<BackgroundJobMessage>>()))
-                .Callback<string, Action<BackgroundJobMessage>>((sub, action) => { this.subscriptionSubject= sub; this.subscriptionHandler= action; });
-      brokerMock.Setup(b => b.SubscribeRequest<BackgroundJobMessage, IStarterCompletion>(It.IsAny<string>(), It.IsAny<Func<BackgroundJobMessage, Task<IStarterCompletion>>>()))
-                .Callback<string, Func<BackgroundJobMessage, Task<IStarterCompletion>>>((sub, func) => {
+      brokerMock.Setup(b => b.Subscribe<AutomationJobMessage>(It.IsAny<string>(), It.IsAny<Action<AutomationJobMessage>>()))
+                .Callback<string, Action<AutomationJobMessage>>((sub, action) => { this.subscriptionSubject= sub; this.subscriptionHandler= action; });
+      brokerMock.Setup(b => b.SubscribeRequest<AutomationJobMessage, IStarterCompletion>(It.IsAny<string>(), It.IsAny<Func<AutomationJobMessage, Task<IStarterCompletion>>>()))
+                .Callback<string, Func<AutomationJobMessage, Task<IStarterCompletion>>>((sub, func) => {
         this.subscriptionSubject= sub;
         this.subRequestHandler= func;
       });
@@ -83,8 +83,8 @@ namespace Tlabs.JobCntrl.Test {
       Assert.Equal("test", this.subscriptionSubject);
       int actCnt= 0;
       msgStarter.Activate+= (starter, props) => ++actCnt > 0;
-      subscriptionHandler(new BackgroundJobMessage { Source= "tstSource" });
-      subscriptionHandler(new BackgroundJobMessage { Source= "tstSource" });
+      subscriptionHandler(new AutomationJobMessage("tstSource"));
+      subscriptionHandler(new AutomationJobMessage("tstSource"));
       Assert.Equal(2, actCnt);
     }
 
@@ -99,13 +99,13 @@ namespace Tlabs.JobCntrl.Test {
       Assert.Equal("test", this.subscriptionSubject);
       int actCnt= 0;
       msgStarter.Activate+= (starter, props) => ++actCnt > 0;
-      subscriptionHandler(new BackgroundJobMessage { Source= "tstSource" });
-      subscriptionHandler(new BackgroundJobMessage { Source= "tstSource" });
-      subscriptionHandler(new BackgroundJobMessage { Source= "tstSource" });
+      subscriptionHandler(new AutomationJobMessage("tstSource"));
+      subscriptionHandler(new AutomationJobMessage("tstSource"));
+      subscriptionHandler(new AutomationJobMessage("tstSource"));
       Thread.Sleep(5);
-      subscriptionHandler(new BackgroundJobMessage { Source= "tstSource" });
+      subscriptionHandler(new AutomationJobMessage("tstSource"));
       Thread.Sleep(50);
-      subscriptionHandler(new BackgroundJobMessage { Source= "tstSource" });
+      subscriptionHandler(new AutomationJobMessage("tstSource"));
       Thread.Sleep(50);
       Assert.Equal(2, actCnt);
     }
@@ -126,7 +126,7 @@ namespace Tlabs.JobCntrl.Test {
       Assert.Null(subscriptionHandler);
       Assert.NotNull(subRequestHandler);
 
-      Assert.Empty(subRequestHandler(new BackgroundJobMessage { Source= "tstSource", JobProperties= jobProps }).GetAwaiter().GetResult().JobResults);
+      Assert.Empty(subRequestHandler(new AutomationJobMessage("tstSource", optionalProps: jobProps)).GetAwaiter().GetResult().JobResults);
 
       IStarterCompletion cmplRes= null;
       Model.StarterActivator handler= (starter, props) => {
@@ -137,7 +137,7 @@ namespace Tlabs.JobCntrl.Test {
         return true;
       };
       msgStarter.Activate+= handler;
-      var res= subRequestHandler(new BackgroundJobMessage { Source= "tstSource", JobProperties= jobProps }).GetAwaiter().GetResult(); //this blocks until AsyncCompletionWith() executes...
+      var res= subRequestHandler(new AutomationJobMessage("tstSource", optionalProps: jobProps)).GetAwaiter().GetResult(); //this blocks until AsyncCompletionWith() executes...
       Assert.Equal(cmplRes, res);
     }
 
@@ -166,6 +166,9 @@ namespace Tlabs.JobCntrl.Test {
       public IReadOnlyDictionary<string, object> Properties { get; set; }
       public IStarter InternalStarter => throw new NotImplementedException();
       public event StarterActivationCompleter ActivationComplete;
+      public event StarterActivationMonitor ActivationTriggered;
+      public event StarterActivationCompleter ActivationFinalized;
+
       public event StarterActivator Activate {
         add => throw new NotImplementedException();
         remove => throw new NotImplementedException();

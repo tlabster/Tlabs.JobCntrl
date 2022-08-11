@@ -43,25 +43,26 @@ namespace Tlabs.JobCntrl.Model {
     public const string RUN_PROPERTY_PREFIX= "RUN-PROP-";
 
     /// <summary>Enambled state</summary>
-    protected bool isEnabled= false;      //start as disabled - to be enabled by the runtime later on...
+    #pragma warning disable CA1805  //start as disabled - to be enabled by the runtime later on...
+    protected bool isEnabled= false;      
 
     /// <summary>Event to be registered by Job(s)</summary>
     public event StarterActivator Activate;
 
-    ///<inherit/>
+    ///<inheritdoc/>
     public IStarter Initialize(string name, string description, IProps properties) {
       InitBase(name, description, properties);
       return InternalInit();
     }
 
-    ///<inherit/>
+    ///<inheritdoc/>
     public virtual bool DoActivate(IProps invocationProps) {
       var activateEvent= Activate;
       if (!Enabled || null == activateEvent) return false;
       return activateEvent.Invoke(this, invocationProps);
     }
 
-    ///<inherit/>
+    ///<inheritdoc/>
     public bool Enabled {
       get { return isEnabled; }
       set { if (isEnabled != value) ChangeEnabledState(value); }

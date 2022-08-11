@@ -29,10 +29,12 @@ namespace Tlabs.JobCntrl.Test {
          .DefineMasterStarter(name: "CHAINED", description: "Chained activation after completion of previous starter.", type: typeof(Chained).AssemblyQualifiedName)
 
          .DefineMasterJob(name: "TEST", description: "Test job.", type: typeof(Job.TestJob).AssemblyQualifiedName)
+         .DefineMasterJob(name: "ASYNC_TEST", description: "Async.Test job.", type: typeof(Job.AsyncTestJob).AssemblyQualifiedName)
 
          .DefineStarter(master: "MANUAL", name: "ManualStarter", description: "Manual starter activation")
          .DefineStarter(master: "CHAINED", name: "ChainedStarter", description: "Chained starter activation", properties: new Dictionary<string, object> {
-           [Chained.PROP_COMPLETED_STARTER]= "ManualStarter"
+           [Chained.PROP_COMPLETED_STARTER]= "ManualStarter",
+           [Chained.PROP_PREVIOUS_ALLOW_FAIL]= true
          })
          .DefineJob(master: "TEST", name: "Job1.1", starter: "ManualStarter", description: "Stage-1 / Job-1", properties: new Dictionary<string, object> {
            ["Log-Level"]= "Detail",
@@ -41,6 +43,12 @@ namespace Tlabs.JobCntrl.Test {
          .DefineJob(master: "TEST", name: "Job1.2", starter: "ManualStarter", description: "Stage-1 / Job-2", properties: new Dictionary<string, object> {
            ["min-Wait"]= 900,
            ["max-Wait"]= 1300
+         })
+         .DefineJob(master: "ASYNC_TEST", name: "Job1.3", starter: "ManualStarter", description: "Stage-1 / Job-3", properties: new Dictionary<string, object> {
+           ["Log-Level"]= "Detail",
+           ["jobProp01"]= "jobProp01",
+           ["min-Wait"]= 500,
+           ["max-Wait"]= 1700
          })
         .DefineJob(master: "TEST", name: "Job2.1", starter: "ChainedStarter", description: "Stage-2 / Job-1")
         .DefineJob(master: "TEST", name: "Job2.2", starter: "ChainedStarter", description: "Stage-2 / Job-2", properties: new Dictionary<string, object> {
@@ -62,7 +70,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public void BasicRuntimeTest() {
-      var rt= new JobCntrlRuntime(this.tstCfgLoader, App.Logger<JobCntrlRuntime>());
+      var rt= new JobCntrlRuntime(this.tstCfgLoader);
       Assert.Throws<InvalidOperationException>(() => rt.Start());
       rt.Init();
       Assert.Throws<InvalidOperationException>(() => rt.Init());
@@ -86,11 +94,11 @@ namespace Tlabs.JobCntrl.Test {
           if (null != res.ProcessingLog) foreach(var ent in res.ProcessingLog.Entries)
             tstout.WriteLine($"\t\tStep: {ent.ProcessStep} {ent.Message}");
         }
-        if (++completionCnt > 0)
+        if (++completionCnt > 1)
           actComplete.SignalPermanent(true);
       };
 
-      var rt= new JobCntrlRuntime(this.tstCfgLoader, starterCompletion, App.Logger<JobCntrlRuntime>());
+      var rt= new JobCntrlRuntime(this.tstCfgLoader, starterCompletion);
       rt.Init();
       rt.Start();
 
@@ -100,7 +108,9 @@ namespace Tlabs.JobCntrl.Test {
         ["TST-RUN-PROP"]= "manual activation test"
       });
       actComplete.WaitForSignal(1500);
-      Assert.True(completionCnt > 0);
+      Assert.Equal(completionCnt, 2);
+      Assert.True(rt.FullCompletion.IsCompletedSuccessfully);
+      Assert.Equal(0, rt.CurrentJobActivationCount);
     }
   }
 

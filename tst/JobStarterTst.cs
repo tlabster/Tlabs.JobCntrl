@@ -58,6 +58,8 @@ namespace Tlabs.JobCntrl.Test {
       protected override void ChangeEnabledState(bool enabled) {
         isEnabled= enabled;
       }
+
+      protected override void Dispose(bool disposing) => base.Dispose(disposing);
     }
 
     class TestJobImpl : BaseJob {

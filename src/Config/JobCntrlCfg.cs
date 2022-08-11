@@ -43,7 +43,9 @@ namespace Tlabs.JobCntrl.Config {
       public string Name { get; set; }
       public string Description { get; set; }
       public IProps Properties { get; set; }
+#pragma warning disable CA1816    //nothing to dispose here
       public void Dispose() { }
+#pragma warning restore CA1816
     }
 
     public class JobCfg : StarterCfg, IJobCfg {

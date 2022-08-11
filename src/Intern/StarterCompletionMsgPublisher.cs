@@ -13,11 +13,11 @@ namespace Tlabs.JobCntrl.Intern {
 
   /// <summary>Default <see cref="App.ContentRoot"/> relative persistence path.</summary>
   public class StarterCompletionMsgPublisher : IStarterCompletionPersister {
-    IMessageBroker msgBroker;
+    readonly IMessageBroker msgBroker;
 
     /// <summary>Published message subject.</summary>
     public const string COMPLETION_SUBJECT= "JobCntrl.StarterCompletion";
-    ///<inherit/>
+    ///<inheritdoc/>
     public event Action<IStarterCompletionPersister, IStarterCompletion, object> CompletionInfoPersisted;
 
     /// <summary>Ctor from <paramref name="msgBroker"/>.</summary>
@@ -25,10 +25,10 @@ namespace Tlabs.JobCntrl.Intern {
       this.msgBroker= msgBroker;
     }
 
-    ///<inherit/>
+    ///<inheritdoc/>
     public Stream GetLastCompletionInfo(string starterName, out string contentType, out Encoding encoding) => throw new NotImplementedException();
 
-    ///<inherit/>
+    ///<inheritdoc/>
     public void StoreCompletionInfo(IStarterCompletion starterCompletion) {
       msgBroker.Publish(COMPLETION_SUBJECT, starterCompletion);
       CompletionInfoPersisted?.Invoke(this, starterCompletion, null);
@@ -36,7 +36,7 @@ namespace Tlabs.JobCntrl.Intern {
 
     ///<summary>Service configurator.</summary>
     public class Configurator : IConfigurator<IServiceCollection> {
-      ///<inherit/>
+      ///<inheritdoc/>
       public void AddTo(IServiceCollection svcColl, IConfiguration cfg) {
         svcColl.AddSingleton<IStarterCompletionPersister, StarterCompletionMsgPublisher>();
       }
