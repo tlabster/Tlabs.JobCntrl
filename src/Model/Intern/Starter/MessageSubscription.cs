@@ -27,12 +27,11 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
     private static readonly ILogger log= App.Logger<MessageSubscription>();
 
+    readonly BufferedActionRunner bufferedAction= new();
     private IMessageBroker msgBroker;
     private string subscriptionSubject;
     private int buffer;
     private bool reqForResult;
-    private Task bufferTask;
-    private CancellationTokenSource cancelSource;
     private Delegate subscriptionHandler;
     private IRuntimeStarter myRuntimeStarter;
 
@@ -96,22 +95,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
       return rtStarter;
     }
 
-    private void messageHandler(AutomationJobMessage message) {
-      if (0 == buffer) {
-        doActivateWithMessage(message);
-        return;
-      }
-
-      setCancelSource();
-      bufferTask= Task.Delay(buffer, cancelSource.Token);
-      bufferTask.ContinueWith((t, o) => {
-        CancellationTokenSource cts= (CancellationTokenSource)o;
-        t.Dispose();
-        if (cts == Interlocked.CompareExchange<CancellationTokenSource>(ref cancelSource, null, cts)) 
-          cts.Dispose();
-        doActivateWithMessage(message);
-      }, cancelSource, TaskContinuationOptions.NotOnCanceled);
-    }
+    private void messageHandler(AutomationJobMessage message) => bufferedAction.Run(buffer, () => doActivateWithMessage(message));
 
     private Task<IStarterCompletion> handleAsyncMessageCompletion(AutomationJobMessage message) {
       var complSrc= new TaskCompletionSource<IStarterCompletion>();
@@ -137,19 +121,6 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
         if (!message.JobProperties.TryGetValue(pair.Key, out var pval) || pval != pair.Value) return false;
       }
       return true;
-    }
-
-    private void setCancelSource() {
-      CancellationTokenSource cts0, cts;
-      if (null != (cts= Interlocked.CompareExchange<CancellationTokenSource>(ref cancelSource, cts0= new CancellationTokenSource(), null))) {
-        try {
-          cts.Cancel(); //could throw if already disposed from bufferTask.ContinueWith()...
-          cts.Dispose();
-          bufferTask.Dispose();
-        } catch (Exception e) when (Misc.Safe.NoDisastrousCondition(e)) { }
-        if (cts != Interlocked.CompareExchange<CancellationTokenSource>(ref cancelSource, cts0, cts))
-          cts0.Dispose(); // let other win;
-      }
     }
 
     private bool doActivateWithMessage(AutomationJobMessage message) {
