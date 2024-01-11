@@ -19,7 +19,7 @@ namespace Tlabs.JobCntrl.Test {
     IMessageBroker msgBroker;
     IJobControl jobCntrlRuntime;
     RTStarter rtStarter;
-    
+
     string subscriptionSubject;
     Action<AutomationJobMessage> subscriptionHandler;
     Func<AutomationJobMessage, Task<IStarterCompletion>> subRequestHandler;
@@ -89,11 +89,11 @@ namespace Tlabs.JobCntrl.Test {
     }
 
     [Fact]
-    public void BufferdTest() {
+    public async Task BufferdTest() {
       var msgStarter= new MessageSubscription(msgBroker);
       msgStarter.Initialize("msgStarter", "test description", new Dictionary<string, object> {
         [MessageSubscription.PROP_MSG_SUBJECT]= "test",
-        [MessageSubscription.PROP_BUFFER]= 30
+        [MessageSubscription.PROP_BUFFER]= 50
       });
       msgStarter.Enabled= true;
       Assert.Equal("test", this.subscriptionSubject);
@@ -102,11 +102,11 @@ namespace Tlabs.JobCntrl.Test {
       subscriptionHandler(new AutomationJobMessage("tstSource"));
       subscriptionHandler(new AutomationJobMessage("tstSource"));
       subscriptionHandler(new AutomationJobMessage("tstSource"));
-      Thread.Sleep(5);
+      await Task.Delay(5);
       subscriptionHandler(new AutomationJobMessage("tstSource"));
-      Thread.Sleep(50);
+      await Task.Delay(100);
       subscriptionHandler(new AutomationJobMessage("tstSource"));
-      Thread.Sleep(50);
+      await Task.Delay(100);
       Assert.Equal(2, actCnt);
     }
 
@@ -175,6 +175,8 @@ namespace Tlabs.JobCntrl.Test {
       }
       public void Dispose() { }
       public bool DoActivate(IReadOnlyDictionary<string, object> activationProps) {
+        ActivationTriggered?.Invoke(null);
+        ActivationFinalized?.Invoke(null);
         throw new NotImplementedException();
       }
       public IStarter Initialize(string name, string description, IReadOnlyDictionary<string, object> properties) {

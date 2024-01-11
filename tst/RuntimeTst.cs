@@ -77,7 +77,7 @@ namespace Tlabs.JobCntrl.Test {
       rt.Start();
       Assert.Throws<InvalidOperationException>(() => rt.Start());
       Assert.NotNull(rt.Starters["MANualStarter"]);
-      rt.Stop();
+      //rt.Stop();
     }
 
     [Fact]

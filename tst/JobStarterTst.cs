@@ -187,7 +187,7 @@ namespace Tlabs.JobCntrl.Test {
 
       runtimeStarter.DoActivate(runProps);
       actComplete.WaitForSignal();
-      
+
       Assert.Equal(1, this.jobDisposeCnt);
       Assert.Equal(1, this.starterCompletionCnt);
     }

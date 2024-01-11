@@ -217,6 +217,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
           var start= this.Activate;
           if (   null == start
               || jobStartResults.Count != start.GetInvocationList().Length) return; // jobs no all completed
+          ((IDisposable)pendingCompl).Dispose();
           pendingCompl= null;
         }
         Log.LogInformation("Starter '{ST}' activation completed.", Name);
@@ -236,15 +237,13 @@ namespace Tlabs.JobCntrl.Model.Intern {
 
       public void Dispose() {
         IsStarted= false;
-        var trig= targetStarter;
-        if (null != trig) {
+        if (targetStarter is {} trig) {
+          targetStarter?.Dispose();
           trig.Activate-= this.targetStartHandler;
-          trig.Dispose();
+          targetStarter= null;
         }
         runtimeProx.Dispose();
-#pragma warning disable //help gc
-        targetStarter= trig= null;
-#pragma warning restore
+        ((IDisposable)pendingCompl).Dispose();
       }
 
       class RuntimeProxy : IJobControl {
@@ -262,7 +261,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
         public IStarterCompletionPersister CompletionPersister => jobCntrl.CompletionPersister;
 
         public void Init() => jobCntrl.Init();
-        
+
         public void Start() => jobCntrl.Start();
 
         public void Stop() => jobCntrl.Stop();
@@ -388,8 +387,9 @@ namespace Tlabs.JobCntrl.Model.Intern {
           }
         }
         void stopActivity() {
-          if (null != diagActivity)
-            diagSrc.StopActivity(diagActivity, this);
+          if (null == diagActivity) return;
+          diagSrc.StopActivity(diagActivity, this);
+          diagActivity.Dispose();
           diagActivity= null;
         }
         #endregion

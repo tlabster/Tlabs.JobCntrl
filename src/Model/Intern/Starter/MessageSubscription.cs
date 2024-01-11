@@ -65,7 +65,8 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
            */
           msgBroker.Unsubscribe(subscriptionHandler);
           subscriptionHandler= null;
-          this.myRuntimeStarter= null;
+          myRuntimeStarter?.Dispose();
+          myRuntimeStarter= null;
           return enabled;
         }
 
@@ -132,10 +133,12 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
     /// <summary>Dispose managed resources on <paramref name="disposing"/> == true.</summary>
     protected override void Dispose(bool disposing) {
-      base.Dispose(disposing);
-      if (null == msgBroker) return;
+      if (!disposing || null == msgBroker) return;
+      bufferedAction.Dispose();
+      myRuntimeStarter?.Dispose();
       ChangeEnabledState(false);
       msgBroker= null;
+      base.Dispose(disposing);
     }
 
 
