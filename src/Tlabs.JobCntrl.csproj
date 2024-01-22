@@ -1,23 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <VersionPrefix>2.1.2</VersionPrefix>
+    <VersionPrefix>2.2.0</VersionPrefix>
     <TargetFramework>net8.0</TargetFramework>
     <OutputType>Library</OutputType>
-    <!--<RuntimeFrameworkVersion>6.0.1</RuntimeFrameworkVersion>-->
+    <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <Description>Background job control runtime and framework.</Description>
     <Authors>Tlabs</Authors>
 
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
-    <AnalysisLevel>6</AnalysisLevel>
-    <AnalysisMode>Recommended</AnalysisMode>
     <AnalysisModeSecurity>All</AnalysisModeSecurity>
     <AnalysisModeNaming>None</AnalysisModeNaming>
-    <!--
-    <AnalysisLevel>6-recommended</AnalysisLevel>
-    -->
   </PropertyGroup>
 
   <PropertyGroup>

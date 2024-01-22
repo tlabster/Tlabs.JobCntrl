@@ -15,14 +15,24 @@ namespace Tlabs.JobCntrl.Config {
 
   ///<summary>Loads a <see cref="IJobControlCfg"/> form enumeration of <see cref="IJobCntrlConfigurator"/>(s).</summary>
   public class JobCntrlCfgLoader : IJobControlCfgLoader {
-    
+
     readonly IEnumerable<IJobCntrlConfigurator> configs;
     ///<summary>Loaded configuration</summary>
     protected JobCntrlCfg jobCntrlCfg;
 
     ///<summary>Ctor from <paramref name="configs"/>.</summary>
-    public JobCntrlCfgLoader(IEnumerable<IJobCntrlConfigurator> configs) {
+    public JobCntrlCfgLoader(IEnumerable<IJobCntrlConfigurator>? configs= null) {
       this.configs= configs ?? Enumerable.Empty<IJobCntrlConfigurator>();
+      this.jobCntrlCfg=  new JobCntrlCfg {
+        MasterCfg= new JobCntrlCfg.MasterConfig {
+          Starters= new List<JobCntrlCfg.MasterCfgEntry>(),
+          Jobs=     new List<JobCntrlCfg.MasterCfgEntry>()
+        },
+        ControlCfg= new JobCntrlCfg.ControlConfig {
+          Starters= new List<JobCntrlCfg.StarterCfg>(),
+          Jobs=     new List<JobCntrlCfg.JobCfg>()
+        }
+      };
     }
 
     ///<inheritdoc/>
@@ -30,15 +40,6 @@ namespace Tlabs.JobCntrl.Config {
 
     ///<inheritdoc/>
     public virtual IMasterCfg LoadMasterConfiguration() {
-      this.jobCntrlCfg??=  new JobCntrlCfg();
-
-      this.jobCntrlCfg.MasterCfg??=           new JobCntrlCfg.MasterConfig();
-      this.jobCntrlCfg.MasterCfg.Starters??=  new List<JobCntrlCfg.MasterCfgEntry>();
-      this.jobCntrlCfg.MasterCfg.Jobs??=      new List<JobCntrlCfg.MasterCfgEntry>();
-
-      this.jobCntrlCfg.ControlCfg??=          new JobCntrlCfg.ControlConfig();
-      this.jobCntrlCfg.ControlCfg.Starters??= new List<JobCntrlCfg.StarterCfg>();
-      this.jobCntrlCfg.ControlCfg.Jobs??=     new List<JobCntrlCfg.JobCfg>();
 
       foreach (var cfg in configs) {
         var cntrlCfg= cfg.JobCntrlCfg;

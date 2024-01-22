@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tlabs.JobCntrl {
 
@@ -32,8 +33,7 @@ namespace Tlabs.JobCntrl {
   /// <summary>Dictionary of <see cref="NamedValues{T}"/> that provides abstracts method to handle errors.</summary>
   /// <typeparam name="T">Type parameter for the contained named values</typeparam>
   public abstract class AbstractErrorHandledNamedValues<T> : IDictionary<string, T>, IReadOnlyDictionary<string, T> {
-    /// <summary>Internal dictionary.</summary>
-    protected IDictionary<string, T> dict;
+    NamedValues<T> dict;
 
     /// <summary>Error handler method called on key-not-found errors.</summary>
     /// <remarks>Implementation could return a special value or even throw their own exception.</remarks>
@@ -42,6 +42,15 @@ namespace Tlabs.JobCntrl {
     /// <summary>Error handler method called on an attempt to add a duplicate key.</summary>
     /// <remarks>Implementation could set the <paramref name="newValue"/> to the existing key or even throw their own exception.</remarks>
     protected abstract void HandleDuplicateKey(string key, T newValue);
+
+    /// <summary>Default ctor</summary>
+    public AbstractErrorHandledNamedValues() { this.dict= new NamedValues<T>(); }
+
+    /// <summary>Ctor from <paramref name="capacity"/></summary>
+    public AbstractErrorHandledNamedValues(int capacity) { this.dict= new NamedValues<T>(capacity); }
+
+    /// <summary>Ctor to intialize from another properties dictionary.</summary>
+    public AbstractErrorHandledNamedValues(IEnumerable<KeyValuePair<string, T>> other) { this.dict= new NamedValues<T>(other); }
 
     /// <inheritdoc/>
     public void Add(string key, T value) {
@@ -65,7 +74,7 @@ namespace Tlabs.JobCntrl {
     public bool Remove(string key) { return dict.Remove(key); }
 
     /// <inheritdoc/>
-    public bool TryGetValue(string key, out T value) { return dict.TryGetValue(key, out value); }
+    public bool TryGetValue(string key, [MaybeNullWhen(false)]out T value) { return dict.TryGetValue(key, out value); }
 
     /// <inheritdoc/>
     public ICollection<T> Values { get { return dict.Values; } }

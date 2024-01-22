@@ -9,26 +9,27 @@ using Microsoft.Extensions.Logging;
 using Tlabs.Config;
 using Tlabs.JobCntrl.Model;
 using Tlabs.JobCntrl.Model.Intern;
+using Tlabs.Misc;
 
 namespace Tlabs.JobCntrl.Intern {
   /// <summary>Job control execution runtime.</summary>
   public sealed class JobCntrlRuntime : IJobControl {
     static readonly ILogger<JobCntrlRuntime> log= App.Logger<JobCntrlRuntime>();
-    static readonly IJobControlCfgLoader EMPTY_LOADER= new Config.JobCntrlCfgLoader(null);
+    static readonly Config.JobCntrlCfgLoader EMPTY_LOADER= new Config.JobCntrlCfgLoader();
     static readonly RuntimeConfig EMPTY_CFG= new RuntimeConfig(EMPTY_LOADER.LoadRuntimeConfiguration(EMPTY_LOADER.LoadMasterConfiguration()));
 
     readonly IJobControlCfgLoader cfgLoader;
-    readonly IStarterCompletionPersister trigComplPersisiter;
+    readonly IStarterCompletionPersister? trigComplPersisiter;
     private bool started;
-    private RuntimeConfig runtimeConfig;
+    private RuntimeConfig? runtimeConfig;
     private int starterActivationCnt;
-    private TaskCompletionSource completionSrc;
+    private TaskCompletionSource? completionSrc;
 
     /// <summary>Ctor from <paramref name="cfgLoader"/>.</summary>
     public JobCntrlRuntime(IJobControlCfgLoader cfgLoader) : this(cfgLoader, null) { }
 
     /// <summary>Ctor from <paramref name="cfgLoader"/> and <paramref name="starterCompletionPersister"/>.</summary>
-    public JobCntrlRuntime(IJobControlCfgLoader cfgLoader, IStarterCompletionPersister starterCompletionPersister) {
+    public JobCntrlRuntime(IJobControlCfgLoader cfgLoader, IStarterCompletionPersister? starterCompletionPersister) {
       if (null == (this.cfgLoader= cfgLoader)) throw new ArgumentNullException(nameof(cfgLoader));
       this.trigComplPersisiter= starterCompletionPersister;
     }
@@ -37,17 +38,17 @@ namespace Tlabs.JobCntrl.Intern {
     public IJobControlCfgLoader ConfigLoader { get { return cfgLoader; } }
 
     /// <inheritdoc/>
-    public IStarterCompletionPersister CompletionPersister { get { return trigComplPersisiter; } }
+    public IStarterCompletionPersister? CompletionPersister { get { return trigComplPersisiter; } }
 
     /// <inheritdoc/>
     public void Init() {
-      RuntimeConfig runCfg= null;
+      RuntimeConfig? runCfg= null;
       try {
         runCfg= Misc.Safe.CompareExchange(ref runtimeConfig,
                                           null,
-                                          ()=> new RuntimeConfig(cfgLoader.LoadRuntimeConfiguration(cfgLoader.LoadMasterConfiguration()),
-                                                                monitorStarterActivation,
-                                                                notifyStarterFinished)
+                                          () => new RuntimeConfig(cfgLoader.LoadRuntimeConfiguration(cfgLoader.LoadMasterConfiguration()),
+                                                                  monitorStarterActivation,
+                                                                  notifyStarterFinished)
         );
       }
       catch (Exception e) {
@@ -86,10 +87,11 @@ namespace Tlabs.JobCntrl.Intern {
       if (null != runCfg) lock(runCfg) {
         if (this.started) log.LogInformation("Stopping {name}", GetType().Name);
         this.started= false;
-        if (CurrentJobActivationCount > 0) {
+        if (CurrentJobActivationCount > 0) try {
           log.LogInformation("Waiting for {cnt} pending job avtivations to complete...", CurrentJobActivationCount);
-          FullCompletion.GetAwaiter().GetResult();
+          FullCompletion.AwaitWithTimeout(2500);
         }
+        catch (TimeoutException) { log.LogWarning("Completion of pending job activations timed out."); }
         runCfg.Dispose();
         runtimeConfig= null;    //enable initalization
       }
@@ -149,32 +151,32 @@ namespace Tlabs.JobCntrl.Intern {
     }
 
     private sealed class MasterConfig : IMasterCfg, IDisposable {
+      private bool disposed;
       private IMasterCfg cfg;
       public MasterConfig(IMasterCfg cfg) => this.cfg= cfg;
       public IReadOnlyDictionary<string, MasterStarter> Starters => cfg.Starters;
       public IReadOnlyDictionary<string, MasterJob> Jobs => cfg.Jobs;
       public void Dispose() {
-        var c= cfg;
-        if (null == c) return;
-        foreach (var pair in c.Jobs) pair.Value.Dispose();
-        foreach (var pair in c.Starters) pair.Value.Dispose();
-        #pragma warning disable IDE0059 //help gc
-        cfg= c= null;
+        if (disposed) return;
+        disposed= true;
+        foreach (var pair in cfg.Jobs) pair.Value.Dispose();
+        foreach (var pair in cfg.Starters) pair.Value.Dispose();
       }
     }
 
     private sealed class RuntimeConfig : IDisposable {
+      private bool disposed;
       private MasterConfig masterCfg;
       private IJobControlCfg cntrlCfg;
       private ModelDictionary<IStarter> starters;
       private ModelDictionary<IJob> jobs;
 
-      readonly StarterActivationMonitor handleActivation;
-      readonly StarterActivationCompleter handleFinished;
+      readonly StarterActivationMonitor? handleActivation;
+      readonly StarterActivationCompleter? handleFinished;
 
       public RuntimeConfig(IJobControlCfg cntrlCfg,
-                          StarterActivationMonitor starterActivationMonitor= null,
-                          StarterActivationCompleter starterFinishedHandler= null)
+                          StarterActivationMonitor? starterActivationMonitor= null,
+                          StarterActivationCompleter? starterFinishedHandler= null)
       {
         this.masterCfg= new MasterConfig(cntrlCfg.MasterModels);
         this.cntrlCfg= cntrlCfg;
@@ -213,23 +215,15 @@ namespace Tlabs.JobCntrl.Intern {
       public IReadOnlyDictionary<string, IJob> Jobs => jobs;
 
       public void Dispose() {
-        var jobs= this.jobs;
-        if (null != jobs) {
-          foreach (var pair in jobs) pair.Value.Dispose();
-          this.jobs= jobs= null;
+        if (disposed) return;
+        disposed= true;
+        foreach (var pair in jobs) pair.Value.Dispose();
+        foreach (var pair in starters) if (pair.Value is IRuntimeStarter runSt) {
+          if (null != this.handleActivation) runSt.ActivationTriggered-= this.handleActivation;
+          if (null != this.handleFinished) runSt.ActivationComplete-= this.handleFinished;
+          runSt.Dispose();
         }
-        var starters= this.starters;
-        if (null != starters) {
-          foreach (var pair in starters) if (pair.Value is IRuntimeStarter runSt) {
-            if (null != this.handleActivation) runSt.ActivationTriggered-= this.handleActivation;
-            if (null != this.handleFinished) runSt.ActivationComplete-= this.handleFinished;
-            runSt.Dispose();
-          }
-          this.starters= starters= null;
-        }
-        cntrlCfg= null;
-        masterCfg?.Dispose();
-        masterCfg= null;
+        masterCfg.Dispose();
       }
 
     } //class RuntimConfig

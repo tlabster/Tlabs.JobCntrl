@@ -1,12 +1,12 @@
 ﻿using System.IO;
 
 namespace Tlabs.JobCntrl.Model.Intern.Starter {
-  
+
   /// <summary>Starter that activates on file system changes.</summary>
   /// <remarks>
   /// <para>The starter is watching for any changes to files in a file system directory specified by the <c>PROP_DIR_PATH</c> config. property.
-  /// The property <c>PROP_FILE_NAME</c> can be used to narrow the files to be monitored in the directory. If empty 
-  /// (or not specified) all files are monitored. Specify a complete file name or any wild card pattern like 
+  /// The property <c>PROP_FILE_NAME</c> can be used to narrow the files to be monitored in the directory. If empty
+  /// (or not specified) all files are monitored. Specify a complete file name or any wild card pattern like
   /// '*.csv', 'data-*.xml', 'pos_???_record.*' to filter the files to be monitored for changes.</para>
   /// <para>The actual changed file causing the starter to activate is set with it's full file path in the
   /// activation/run property <c>RPROP_FILE_PATH</c></para>
@@ -19,14 +19,14 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     /// <summary>Run-property name of the property set on job activation that specifies the full path of the detected file.</summary>
     public const string RPROP_FILE_PATH= "Detected-File-Path";
 
-    private System.IO.FileSystemWatcher fileWatcher;
+    private System.IO.FileSystemWatcher? fileWatcher;
 
     /// <summary>Internal starter initialization.</summary>
     protected override IStarter InternalInit() {
-      var directoryPath= PropertyString(PROP_DIR_PATH);
+      var directoryPath= PropertyString(PROP_DIR_PATH) ?? "";
       if (!Path.IsPathRooted(directoryPath))
-        directoryPath= Path.Combine(Path.GetDirectoryName(Tlabs.App.MainEntryPath), directoryPath);
-      
+        directoryPath= Path.Combine(Path.GetDirectoryName(Tlabs.App.MainEntryPath)??"", directoryPath);
+
       var watchDir= new DirectoryInfo(directoryPath);
       if (false == watchDir.Exists) throw new JobCntrlConfigException($"Directory does not exist: '{watchDir.FullName}'");
 
@@ -41,7 +41,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     }
 
     /// <summary>Changes the enabled state of the starter according to <paramref name="enabled"/>.</summary>
-    /// 
+    ///
     [System.Security.SecurityCritical]
     protected override void ChangeEnabledState(bool enabled) {
       this.isEnabled= enabled;

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Tlabs.JobCntrl.Model {
-  using IJobProps= IReadOnlyDictionary<string, object>;
+  using IJobProps= IReadOnlyDictionary<string, object?>;
 
   /// <summary>JobControl Job.</summary>
   public interface IJob : IModel {
@@ -13,7 +13,7 @@ namespace Tlabs.JobCntrl.Model {
     /// <param name="description">Job description</param>
     /// <param name="properties">Properties dictionary</param>
     /// <returns>*this*. (Utility to create instances like: <c>var job= new Job().Initialize(name, description, properties);</c>)</returns>
-    IJob Initialize(string name, string description, IJobProps properties);
+    IJob Initialize(string name, string? description, IJobProps? properties);
 
     /// <summary>Run Job</summary>
     IJobResult Run(IJobProps props);
@@ -39,13 +39,13 @@ namespace Tlabs.JobCntrl.Model {
     bool IsSuccessful { get; }
 
     /// <summary>Job's result status message.</summary>
-    string Message { get; }
+    string? Message { get; }
 
     /// <summary>Optional JobControl result object(s).</summary>
-    IReadOnlyDictionary<string, object> ResultObjects { get; }
+    IReadOnlyDictionary<string, object?> ResultObjects { get; }
 
     /// <summary>Job's processing log.</summary>
-    ILog ProcessingLog { get; }
+    ILog? ProcessingLog { get; }
 
     /// <summary>True if asynchronous result.</summary>
     bool IsAsyncResult { get; }

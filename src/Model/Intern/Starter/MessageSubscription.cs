@@ -29,11 +29,12 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
     readonly BufferedActionRunner bufferedAction= new();
     private IMessageBroker msgBroker;
-    private string subscriptionSubject;
+    private string? subscriptionSubject;
     private int buffer;
     private bool reqForResult;
-    private Delegate subscriptionHandler;
-    private IRuntimeStarter myRuntimeStarter;
+    private Delegate? subscriptionHandler;
+    private IRuntimeStarter? myRuntimeStarter;
+    private bool disposed;
 
     /// <summary>Ctor from <paramref name="msgBroker"/>.</summary>
     public MessageSubscription(IMessageBroker msgBroker) {
@@ -42,7 +43,8 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
     /// <summary>Internal starter initialization.</summary>
     protected override IStarter InternalInit() {
-      this.subscriptionSubject= PropertyString(PROP_MSG_SUBJECT, Name); //subject name from property or starter name
+      if (null == (this.subscriptionSubject= PropertyString(PROP_MSG_SUBJECT, Name))) //subject name from property or starter name
+        throw EX.New<JobCntrlConfigException>("Undefined {property}", PROP_MSG_SUBJECT);
       log.LogDebug("Message subscription starter[{name}] for subject '{sbj}' initialzed.", Name, subscriptionSubject);
       if (0 != (this.buffer= PropertyInt(PROP_BUFFER, 0)))
         log.LogDebug("Message buffer '{buffer}'ms.", this.buffer);
@@ -71,6 +73,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
         }
 
         if (null != subscriptionHandler) return enabled; //allready enabled
+        if (null == subscriptionSubject) throw EX.New<JobCntrlConfigException>("Undefined {property}", PROP_MSG_SUBJECT);
 
         if (reqForResult) {
           this.myRuntimeStarter= getMyRuntimeStarter();
@@ -88,11 +91,11 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     }
 
     private IRuntimeStarter getMyRuntimeStarter() {
-      IRuntimeStarter rtStarter;
+      IRuntimeStarter? rtStarter;
       var runtime= Properties[MasterStarter.PROP_RUNTIME] as IJobControl;
-      IStarter starter= null;
-      if (   !(bool)runtime?.Starters.TryGetValue(Name, out starter)
-          || null== (rtStarter= starter as IRuntimeStarter)) throw new InvalidOperationException($"No RuntimeStarter: {Name}");
+      IStarter? starter= null;
+      if (   false == runtime?.Starters.TryGetValue(Name, out starter)
+          || null == (rtStarter= starter as IRuntimeStarter)) throw new InvalidOperationException($"No RuntimeStarter: {Name}");
       return rtStarter;
     }
 
@@ -108,12 +111,14 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
         complSrc.TrySetResult(completion);
       }
 
-      myRuntimeStarter.ActivationComplete+= complHandler;
-      if (!doActivateWithMessage(message)) {
-        log.LogDebug("Returning empty result (w/o any async await) - because of no job activation(s).");
-        complHandler(new EmptyComplResult(this, message));
+      if (null != myRuntimeStarter) {
+        myRuntimeStarter.ActivationComplete+= complHandler;
+        if (!doActivateWithMessage(message)) {
+          log.LogDebug("Returning empty result (w/o any async await) - because of no job activation(s).");
+          complHandler(new EmptyComplResult(this, message));
+        }
       }
-
+      else complSrc.TrySetException(disposed ? new ObjectDisposedException(nameof(MessageSubscription)) : new InvalidOperationException("No runtime starter"));
       return complSrc.Task;
     }
 
@@ -133,11 +138,11 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
     /// <summary>Dispose managed resources on <paramref name="disposing"/> == true.</summary>
     protected override void Dispose(bool disposing) {
-      if (!disposing || null == msgBroker) return;
+      if (!disposing || disposed) return;
+      disposed= true;
       bufferedAction.Dispose();
       myRuntimeStarter?.Dispose();
       ChangeEnabledState(false);
-      msgBroker= null;
       base.Dispose(disposing);
     }
 
@@ -150,7 +155,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
       }
       public string StarterName { get; }
       public DateTime Time { get; }
-      public IReadOnlyDictionary<string, object> RunProperties { get; }
+      public IReadOnlyDictionary<string, object?> RunProperties { get; }
       public IEnumerable<IJobResult> JobResults=> Enumerable.Empty<IJobResult>();
       public void Dispose() { }
     }

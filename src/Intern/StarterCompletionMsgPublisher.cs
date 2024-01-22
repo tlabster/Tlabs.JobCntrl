@@ -18,7 +18,7 @@ namespace Tlabs.JobCntrl.Intern {
     /// <summary>Published message subject.</summary>
     public const string COMPLETION_SUBJECT= "JobCntrl.StarterCompletion";
     ///<inheritdoc/>
-    public event Action<IStarterCompletionPersister, IStarterCompletion, object> CompletionInfoPersisted;
+    public event Action<IStarterCompletionPersister, IStarterCompletion, object?>? CompletionInfoPersisted;
 
     /// <summary>Ctor from <paramref name="msgBroker"/>.</summary>
     public StarterCompletionMsgPublisher(IMessageBroker msgBroker) {

@@ -37,10 +37,10 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
       Failure
     };
 
-    private IRuntimeStarter completedStarter;
+    private IRuntimeStarter? completedStarter;
     private bool previousAllowFail;
     private PreviousJobStatus activateOnPreviousStatus;
-    private StarterActivationCompleter completionDelegate;
+    private StarterActivationCompleter? completionDelegate;
 
     ///<inheritdoc/>
     protected override IStarter InternalInit() {
@@ -61,8 +61,9 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
             this.completedStarter= (IRuntimeStarter)runtime.Starters[starterName];
           }
         }
-        if(true == (this.isEnabled= null != this.completedStarter))
-          completedStarter.ActivationComplete+= completionDelegate;
+        this.isEnabled= (null != this.completedStarter);
+        if (this.isEnabled)
+          this.completedStarter!.ActivationComplete+= completionDelegate;
       }
       else if(null != this.completedStarter)
         completedStarter.ActivationComplete-= completionDelegate;
@@ -71,13 +72,13 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     private void HandlePrecedingStarterCompletion(IStarterCompletion precedingCompletion) {
       /* Prepare the runProps for the chained starter to be activated:
        */
-      var runProps = new ConfigProperties(precedingCompletion.RunProperties ?? ConfigProperties.EMPTY) {
+      var runProps= new ConfigProperties(precedingCompletion.RunProperties ?? ConfigProperties.EMPTY) {
         [RPROP_STARTER_COMPLETION]= precedingCompletion
       };
-      var prevResults= (IDictionary<string, object>)ConfigProperties.GetOrSet(runProps, RPROP_PREVIOUS_RESULTS, new ConfigProperties());
+      var prevResults= (IDictionary<string, object?>)ConfigProperties.GetOrSet(runProps, RPROP_PREVIOUS_RESULTS, new ConfigProperties())!;
 
-      var successResults= new Dictionary<string, object>();
-      var jobFailures= new Dictionary<string, object>();
+      var successResults= new Dictionary<string, object?>();
+      var jobFailures= new Dictionary<string, object?>();
 
       /* Collect preceding results/failures:
        */
@@ -102,7 +103,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
            */
           prevResults.SetRange(successResults);
         break;
-        
+
         case PreviousJobStatus.Failure:
           if (jobFailures.Count == 0) return; //do not acivate w/o any failure
           prevResults.SetRange(jobFailures);
@@ -113,7 +114,7 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
       DoActivate(runProps);
     }
-  
+
   }
 
 }

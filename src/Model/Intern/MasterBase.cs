@@ -15,7 +15,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
     /// <param name="description">description string</param>
     /// <param name="targetType">Target instance type (must be assignable from <typeparamref name="T"/>)</param>
     /// <param name="properties">Master's configuration parameters</param>
-    protected MasterBase(string name, string description, Type targetType, IReadOnlyDictionary<string, object> properties) : base(name, description, properties) {
+    protected MasterBase(string name, string? description, Type targetType, IReadOnlyDictionary<string, object?>? properties) : base(name, description, properties) {
       if (null == (this.targetType= targetType)) throw new ArgumentNullException(nameof(targetType));
       if (!typeof(T).IsAssignableFrom(targetType)) throw new ArgumentException($"{typeof(T)} not assignable from {nameof(targetType)}: {targetType.Name}");
     }

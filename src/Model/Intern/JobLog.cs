@@ -148,7 +148,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
          */
         private static void ShrinkLogByLevel(JobLog log, JobLogLevel lev) {
           log.level= lev;
-          LinkedListNode<ILogEntry> next;
+          LinkedListNode<ILogEntry>? next;
           for (var node= log.First; null != node; node= next) {
             next= node.Next;
             if (lev < node.Value.Level)

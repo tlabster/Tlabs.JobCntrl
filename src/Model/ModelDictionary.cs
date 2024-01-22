@@ -8,13 +8,13 @@ namespace Tlabs.JobCntrl.Model {
   public class ModelDictionary<T> : AbstractErrorHandledNamedValues<T> where T : Model.IModel {
 
     /// <summary>Default ctor.</summary>
-    public ModelDictionary() { this.dict= new NamedValues<T>(); }
+    public ModelDictionary() { }
 
     /// <summary>Ctor from <paramref name="capacity"/>.</summary>
-    public ModelDictionary(int capacity) { this.dict= new NamedValues<T>(capacity); }
+    public ModelDictionary(int capacity) : base(capacity) { }
 
-    /// <summary>Ctor from another <see cref="IDictionary{K, T}"/>.</summary>
-    public ModelDictionary(IDictionary<string, T> other) { this.dict= other; }
+    /// <summary>Ctor from <paramref name="other"/>.</summary>
+    public ModelDictionary(IEnumerable<KeyValuePair<string, T>> other) : base(other) { }
 
 
     /// <summary>Custom KeyNotFound handler</summary>

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Tlabs.JobCntrl.Model {
-  using IJobProps= IReadOnlyDictionary<string, object>;
+  using IJobProps= IReadOnlyDictionary<string, object?>;
 
   /// <summary>Abstract Job base class.</summary>
   /// <remarks>Convenients base class for implementators of the <see cref="IJob"/> interface.</remarks>
@@ -12,7 +12,7 @@ namespace Tlabs.JobCntrl.Model {
     public const string PROP_LOGLEVEL= "Log-Level";
 
     /// <summary>Job logger.</summary>
-    protected IJobLogger log;
+    protected IJobLogger log= null!;
 
     /// <summary>Dump Job log to standard out stream (console).</summary>
     public static void DumpLog(BaseJob job) => DumpLog(job.log.Log);
@@ -28,7 +28,7 @@ namespace Tlabs.JobCntrl.Model {
     /// <param name="description">Job description</param>
     /// <param name="properties">Properties dictionary</param>
     /// <returns>*this*. (Utility to create instances like: <c>var Job= new Job().Initialize(name, description, properties);</c>)</returns>
-    public IJob Initialize(string name, string description, IJobProps properties) {
+    public IJob Initialize(string name, string? description, IJobProps? properties) {
       InitBase(name, description, properties);
       log= InternalCreateLogger();
       return InternalInit();
@@ -68,7 +68,7 @@ namespace Tlabs.JobCntrl.Model {
     }
 
     /// <summary>Create a <see cref="IJobResult"/> with <paramref name="resultObjs"/> and (optional) <paramref name="message"/>.</summary>
-    protected IJobResult CreateResult(IReadOnlyDictionary<string, object> resultObjs, string message = null) {
+    protected IJobResult CreateResult(IReadOnlyDictionary<string, object?> resultObjs, string? message= null) {
       return new Intern.JobResult(this.Name, resultObjs, message, this.log.Log);
     }
 
