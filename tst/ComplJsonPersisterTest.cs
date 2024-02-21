@@ -24,6 +24,10 @@ namespace Tlabs.JobCntrl.Test {
         Assert.True(File.Exists(obj.ToString()));
       };
       jsonPers.StoreCompletionInfo(compl);
+
+      using var strm= jsonPers.GetLastCompletionInfo("dummy-test-starter", out var conType,  out var enc);
+      Assert.StartsWith("text", conType);
+      Assert.Null(strm);
     }
 
     class StarterCompl : IStarterCompletion {

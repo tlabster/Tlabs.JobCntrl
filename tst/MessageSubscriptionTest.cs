@@ -47,7 +47,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public void BasicTest() {
-      var msgStarter= new MessageSubscription(msgBroker);
+      using var msgStarter= new MessageSubscription(msgBroker);
       msgStarter.Initialize("msgStarter", "test description", null);
       Assert.Null(subscriptionSubject);
       Assert.Null(subRequestHandler);
@@ -75,7 +75,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public void UnbufferdTest() {
-      var msgStarter= new MessageSubscription(msgBroker);
+      using var msgStarter= new MessageSubscription(msgBroker);
       msgStarter.Initialize("msgStarter", "test description", new Dictionary<string, object> {
         [MessageSubscription.PROP_MSG_SUBJECT]= "test"
       });
@@ -90,7 +90,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public async Task BufferdTest() {
-      var msgStarter= new MessageSubscription(msgBroker);
+      using var msgStarter= new MessageSubscription(msgBroker);
       msgStarter.Initialize("msgStarter", "test description", new Dictionary<string, object> {
         [MessageSubscription.PROP_MSG_SUBJECT]= "test",
         [MessageSubscription.PROP_BUFFER]= 50
@@ -112,7 +112,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public void ReturnResultTest() {
-      var msgStarter= new MessageSubscription(msgBroker);
+      using var msgStarter= new MessageSubscription(msgBroker);
       var jobProps= new Dictionary<string, object> {["msg"]= "tst-message" };
       msgStarter.Initialize("msgStarter", "test description", new Dictionary<string, object> {
         [MessageSubscription.PROP_RET_RESULT]= true,
