@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
-using Tlabs.Misc;
+using Tlabs.Config;
 
 using Xunit;
 
