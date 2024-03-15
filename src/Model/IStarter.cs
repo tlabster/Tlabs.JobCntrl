@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 
 namespace Tlabs.JobCntrl.Model {
-  using IProps= IReadOnlyDictionary<string, object>;
+  using IProps= IReadOnlyDictionary<string, object?>;
 
   /// <summary>Delegate invoked on <see cref="IStarter.Activate"/> event.</summary>
   /// <param name="starter">Activated target Starter</param>
@@ -31,9 +31,9 @@ namespace Tlabs.JobCntrl.Model {
     IStarter Initialize(string name, string description, IProps properties);
 
     /// <summary>Manually activate the Starter.</summary>
-    /// <param name="activationProps">Activation properties to be passed to the Job(s) being started.</param>
+    /// <param name="activationProps">(Optional) activation properties to be passed to the Job(s) being started.</param>
     /// <returns>true if actually at least one jobs has been activated, false if no job at all was activated (because the starter was disabled or no jobs are configured...</returns>
-    bool DoActivate(IProps activationProps);
+    bool DoActivate(IProps? activationProps);
   }
 
   /// <summary>Starter base class.</summary>
@@ -44,10 +44,10 @@ namespace Tlabs.JobCntrl.Model {
 
     /// <summary>Enambled state</summary>
     #pragma warning disable CA1805  //start as disabled - to be enabled by the runtime later on...
-    protected bool isEnabled= false;      
+    protected bool isEnabled= false;
 
     /// <summary>Event to be registered by Job(s)</summary>
-    public event StarterActivator Activate;
+    public event StarterActivator? Activate;
 
     ///<inheritdoc/>
     public IStarter Initialize(string name, string description, IProps properties) {
@@ -56,10 +56,10 @@ namespace Tlabs.JobCntrl.Model {
     }
 
     ///<inheritdoc/>
-    public virtual bool DoActivate(IProps invocationProps) {
+    public virtual bool DoActivate(IProps? invocationProps) {
       var activateEvent= Activate;
       if (!Enabled || null == activateEvent) return false;
-      return activateEvent.Invoke(this, invocationProps);
+      return activateEvent.Invoke(this, invocationProps ?? ConfigProperties.EMPTY);
     }
 
     ///<inheritdoc/>

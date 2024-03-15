@@ -12,8 +12,8 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
     public const string PARAM_SCHEDULE_TIME= "schedule-Time";
     private static readonly Timing.TimeScheduler timer= new Timing.TimeScheduler();
 
-    private Timing.ITimePlan timePlan;
-    private Action dueTimeHandler;
+    private Timing.ITimePlan? timePlan;
+    private Action? dueTimeHandler;
 
     ///<inheritdoc/>
     protected override IStarter InternalInit() {
@@ -23,12 +23,13 @@ namespace Tlabs.JobCntrl.Model.Intern.Starter {
 
       timePlan= new Timing.ScheduleTime(schedTimeStr);
       dueTimeHandler= () => this.DoActivate(null);
-      
+
       return this;
     }
 
     ///<inheritdoc/>
     protected override void ChangeEnabledState(bool enabled) {
+      if (null == timePlan || null == dueTimeHandler) throw new InvalidOperationException("Not initialized");
       if (true == (isEnabled= enabled))
         timer.Add(timePlan, dueTimeHandler);
       else

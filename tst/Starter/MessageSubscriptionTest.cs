@@ -18,7 +18,7 @@ namespace Tlabs.JobCntrl.Test {
     SvcProvEnvironment appTimeEnv;
     IMessageBroker msgBroker;
     IJobControl jobCntrlRuntime;
-    RTStarter rtStarter;
+    RTTestStarter rtStarter;
 
     string subscriptionSubject;
     Action<AutomationJobMessage> subscriptionHandler;
@@ -39,7 +39,7 @@ namespace Tlabs.JobCntrl.Test {
       this.msgBroker= brokerMock.Object;
 
       var jcntrlMock= new Mock<IJobControl>();
-      this.rtStarter= new RTStarter();
+      this.rtStarter= new RTTestStarter();
       rtStarter.Initialize("msgStarter", "test description", null);
       jcntrlMock.Setup(j => j.Starters).Returns(new Dictionary<string, IStarter> {[rtStarter.Name]= rtStarter});
       this.jobCntrlRuntime= jcntrlMock.Object;
@@ -47,7 +47,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public void BasicTest() {
-      var msgStarter= new MessageSubscription(msgBroker);
+      using var msgStarter= new MessageSubscription(msgBroker);
       msgStarter.Initialize("msgStarter", "test description", null);
       Assert.Null(subscriptionSubject);
       Assert.Null(subRequestHandler);
@@ -75,7 +75,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public void UnbufferdTest() {
-      var msgStarter= new MessageSubscription(msgBroker);
+      using var msgStarter= new MessageSubscription(msgBroker);
       msgStarter.Initialize("msgStarter", "test description", new Dictionary<string, object> {
         [MessageSubscription.PROP_MSG_SUBJECT]= "test"
       });
@@ -90,7 +90,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public async Task BufferdTest() {
-      var msgStarter= new MessageSubscription(msgBroker);
+      using var msgStarter= new MessageSubscription(msgBroker);
       msgStarter.Initialize("msgStarter", "test description", new Dictionary<string, object> {
         [MessageSubscription.PROP_MSG_SUBJECT]= "test",
         [MessageSubscription.PROP_BUFFER]= 50
@@ -112,7 +112,7 @@ namespace Tlabs.JobCntrl.Test {
 
     [Fact]
     public void ReturnResultTest() {
-      var msgStarter= new MessageSubscription(msgBroker);
+      using var msgStarter= new MessageSubscription(msgBroker);
       var jobProps= new Dictionary<string, object> {["msg"]= "tst-message" };
       msgStarter.Initialize("msgStarter", "test description", new Dictionary<string, object> {
         [MessageSubscription.PROP_RET_RESULT]= true,
@@ -132,7 +132,7 @@ namespace Tlabs.JobCntrl.Test {
       Model.StarterActivator handler= (starter, props) => {
         Assert.True(rtStarter.IsCompletionRegistered);
         rtStarter.Properties= props;
-        cmplRes= new CompletionResult(rtStarter, new List<IJobResult> { new JobResult(rtStarter.Name, true)});
+        cmplRes= new TestCompletionResult(rtStarter, new List<IJobResult> { new JobResult(rtStarter.Name, true)});
         rtStarter.AsyncCompletionWith(cmplRes);
         return true;
       };
@@ -158,54 +158,5 @@ namespace Tlabs.JobCntrl.Test {
       Assert.True(wasCanceled);
     }
 
-    class RTStarter : IRuntimeStarter {
-      public bool IsStarted { get; set; }
-      public bool Enabled { get; set; }
-      public string Name { get; set; }
-      public string Description { get; set; }
-      public IReadOnlyDictionary<string, object> Properties { get; set; }
-      public IStarter InternalStarter => throw new NotImplementedException();
-      public event StarterActivationCompleter ActivationComplete;
-      public event StarterActivationMonitor ActivationTriggered;
-      public event StarterActivationCompleter ActivationFinalized;
-
-      public event StarterActivator Activate {
-        add => throw new NotImplementedException();
-        remove => throw new NotImplementedException();
-      }
-      public void Dispose() { }
-      public bool DoActivate(IReadOnlyDictionary<string, object> activationProps) {
-        ActivationTriggered?.Invoke(null);
-        ActivationFinalized?.Invoke(null);
-        throw new NotImplementedException();
-      }
-      public IStarter Initialize(string name, string description, IReadOnlyDictionary<string, object> properties) {
-        this.Name= name;
-        this.Description= description;
-        this.Properties= properties;
-        return this;
-      }
-      public bool IsCompletionRegistered => null != ActivationComplete;
-      public void AsyncCompletionWith(IStarterCompletion cmpl) {
-        Task.Delay(50)
-            .ContinueWith((t, o) => {
-              ActivationComplete(cmpl);
-            }, null);
-      }
-    }
-
-    class CompletionResult : IStarterCompletion {
-      public CompletionResult(IStarter rtStarter, IEnumerable<IJobResult> results) {
-        this.StarterName= rtStarter.Name;
-        this.Time= DateTime.Now;
-        this.RunProperties= rtStarter.Properties;
-        this.JobResults= results;
-      }
-      public string StarterName { get; }
-      public DateTime Time { get; }
-      public IReadOnlyDictionary<string, object> RunProperties { get; }
-      public IEnumerable<IJobResult> JobResults { get; }
-      public void Dispose() {}
-    }
   }
 }

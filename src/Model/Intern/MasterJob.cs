@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace Tlabs.JobCntrl.Model.Intern {
-  using static Tlabs.Misc.Safe;
-  using IJobProps = IReadOnlyDictionary<string, object>;
+  using IJobProps= IReadOnlyDictionary<string, object?>;
 
 
   /// <summary><see cref="IJob"/> master class.</summary>
@@ -18,7 +16,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
     /// <param name="description">description string</param>
     /// <param name="jobType">Target <see cref="IJob"/> instance type</param>
     /// <param name="properties">Job master configuration parameters</param>
-    public MasterJob(string name, string description, Type jobType, IJobProps properties)
+    public MasterJob(string name, string? description, Type jobType, IJobProps? properties)
       : base(name, description, jobType, properties) { }
 
     /// <summary>Create an <see cref="IJob"/> runtime instance.</summary>
@@ -46,7 +44,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
     sealed class RuntimeJob : BaseModel, IJob {
       private MasterJob masterJob;
       private IStarter jobStarter;
-      private StarterActivator activationHandler;
+      private StarterActivator? activationHandler;
 
       internal RuntimeJob(MasterJob masterJob, IStarter jobStarter, string name, string description, IJobProps properties)
         : base(name, description, new ConfigProperties(masterJob.Properties, properties).AsReadOnly()) {
@@ -59,7 +57,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
 
       public ILog ProcessingLog => throw new NotImplementedException();
 
-      public IJob Initialize(string name, string description, IJobProps properties) {
+      public IJob Initialize(string name, string? description, IJobProps? properties) {
         throw new InvalidOperationException("Already initalized");
       }
 
@@ -76,29 +74,27 @@ namespace Tlabs.JobCntrl.Model.Intern {
           }
         }
         activationHandler= null;
-        jobStarter= null;
-        masterJob= null;
       }
 
 
       private bool HandleStarterInvocation(IStarter srcStarter, IJobProps runProps) {
         MasterJob.Log.LogInformation("Executing job '{JOB}' (activated from starter[{ST}], jobType: {JT}).", this.Name, srcStarter.Name, masterJob.targetType.Name);
         var jobStarter= (IStarterActivation)srcStarter;   //must be activated from starter
-        IJob asyncJob= null;
+        IJob? asyncJob= null;
 
         Tlabs.App.RunBackgroundService<IJob, IJobResult>(masterJob.targetType, job => {
           asyncJob= job.Initialize(this.Name, this.Description, this.Properties);
           return asyncJob.Run(runProps);
         })
         .ContinueWith(async jobTsk => {   // and continue with job result
-          IJobResult jobResult= null;
+          IJobResult? jobResult= null;
           try {
             jobResult= await jobTsk;
             while (jobResult.IsAsyncResult)   // support async. job result(s)
               jobResult= await jobResult.AsyncResult;   //unwrap async result
           }
           catch (Exception e) {
-            jobResult= new JobResult(this?.Name, e, asyncJob?.ProcessingLog);
+            jobResult= new JobResult(this.Name, e, asyncJob?.ProcessingLog);
           }
           try {
             Log.LogInformation("Job '{J}' {RES1}.", jobResult.JobName, jobResult.IsSuccessful ? "finished successfully" : "failed");
@@ -111,7 +107,7 @@ namespace Tlabs.JobCntrl.Model.Intern {
           }
           catch (Exception e) {
             //Make sure we always add a result to the starter - else the starter would hang !
-            jobResult= new JobResult(this?.Name, e, null);
+            jobResult= new JobResult(this.Name, e, null);
             MasterJob.Log.LogError(e, "Error returning job {JOB}'s result ({MSG}).", this?.Name, e?.Message);
           }
           //Make sure we always add a result to the starter - else the starter would hang !

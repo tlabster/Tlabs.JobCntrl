@@ -14,7 +14,7 @@ namespace Tlabs.JobCntrl {
   using IJobCfg= IEnumerable<Model.IJobCfg>;
   using IStarterMap= IReadOnlyDictionary<string, Model.IStarter>;
   using IJobMap= IReadOnlyDictionary<string, Model.IJob>;
-  using IProps= IReadOnlyDictionary<string, object>;
+  using IProps= IReadOnlyDictionary<string, object?>;
 
   /// <summary>Interface of a JobControl.</summary>
   public interface IJobControl : IDisposable {
@@ -29,7 +29,7 @@ namespace Tlabs.JobCntrl {
     IJobControlCfgLoader ConfigLoader { get; }
 
     /// <summary>Returns the <see cref="IStarterCompletionPersister"/> used to persist activator completion data.</summary>
-    IStarterCompletionPersister CompletionPersister { get; }
+    IStarterCompletionPersister? CompletionPersister { get; }
 
     /// <summary>Master model's configuration.</summary>
     IMasterCfg MasterModels { get; }
@@ -58,14 +58,14 @@ namespace Tlabs.JobCntrl {
   public interface IStarterCompletionPersister {
 
     /// <summary>Event fired when a starter completion info has been persisted.</summary>
-    event Action<IStarterCompletionPersister, IStarterCompletion, object> CompletionInfoPersisted;
+    event Action<IStarterCompletionPersister, IStarterCompletion, object?> CompletionInfoPersisted;
 
     /// <summary>Returns a starters completion persistent info as a stream.</summary>
     /// <param name="starterName">starter instance name</param>
     /// <param name="contentType">returned streams MIME content type</param>
     /// <param name="encoding">returned streams text encoding</param>
-    /// <returns>A binray data stream for reading that must be disposed after usage.</returns>
-    System.IO.Stream GetLastCompletionInfo(string starterName, out string contentType, out Encoding encoding);
+    /// <returns>A binray data stream for reading that must be disposed after usage ore null if no completion info available.</returns>
+    System.IO.Stream? GetLastCompletionInfo(string starterName, out string contentType, out Encoding encoding);
 
     /// <summary>Store starters completion info in a persistent storage.</summary>
     void StoreCompletionInfo(IStarterCompletion starterCompletion);
@@ -130,13 +130,13 @@ namespace Tlabs.JobCntrl {
     JobCntrlCfg JobCntrlCfg { get; }
 
     /// <summary>Define a <see cref="MasterStarter"/>.</summary>
-    IJobCntrlConfigurator DefineMasterStarter(string name, string description, string type, IProps properties= null);
+    IJobCntrlConfigurator DefineMasterStarter(string name, string description, string type, IProps? properties= null);
     /// <summary>Define a <see cref="MasterJob"/>.</summary>
-    IJobCntrlConfigurator DefineMasterJob(string name, string description, string type, IProps properties= null);
+    IJobCntrlConfigurator DefineMasterJob(string name, string description, string type, IProps? properties= null);
     /// <summary>Define a runtime starter.</summary>
-    IJobCntrlConfigurator DefineStarter(string name, string master, string description, IProps properties= null);
+    IJobCntrlConfigurator DefineStarter(string name, string master, string description, IProps? properties= null);
     /// <summary>Define a runtime job.</summary>
-    IJobCntrlConfigurator DefineJob(string name, string master, string starter, string description, IProps properties= null);
+    IJobCntrlConfigurator DefineJob(string name, string master, string starter, string description, IProps? properties= null);
   }
 
   /// <summary>Interface of a JobControl's configuration persister.</summary>

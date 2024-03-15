@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Text;
-using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 
@@ -18,7 +17,7 @@ namespace Tlabs.JobCntrl.Intern {
     /// <summary>Published message subject.</summary>
     public const string COMPLETION_SUBJECT= "JobCntrl.StarterCompletion";
     ///<inheritdoc/>
-    public event Action<IStarterCompletionPersister, IStarterCompletion, object> CompletionInfoPersisted;
+    public event Action<IStarterCompletionPersister, IStarterCompletion, object?>? CompletionInfoPersisted;
 
     /// <summary>Ctor from <paramref name="msgBroker"/>.</summary>
     public StarterCompletionMsgPublisher(IMessageBroker msgBroker) {

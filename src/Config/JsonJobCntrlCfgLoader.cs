@@ -12,21 +12,20 @@ namespace Tlabs.JobCntrl.Config {
   public class JsonJobCntrlCfgLoader : JobCntrlCfgLoader {
     ///<summary>Config path property.</summary>
     public const string CFG_PATH= "path";
-    
-    readonly string configPath;
-    readonly JsonFormat.Serializer<JobCntrlCfg> json;
+
+    readonly string? configPath;
     ///<summary>Ctor from <paramref name="props"/> and <paramref name="configs"/>.</summary>
     public JsonJobCntrlCfgLoader(IJobCntrlCfgLoaderProperties props, IEnumerable<IJobCntrlConfigurator> configs) : base(configs) {
       if (null != props && props.TryGetValue(CFG_PATH, out configPath) && !Path.IsPathRooted(configPath))
         this.configPath= Path.Combine(App.ContentRoot, configPath);
-      this.json= JsonFormat.CreateSerializer<JobCntrlCfg>();
     }
 
     ///<inheritdoc/>
     public override IMasterCfg LoadMasterConfiguration() {
+      var json= JsonFormat.CreateSerializer<JobCntrlCfg>();
       this.jobCntrlCfg=   string.IsNullOrEmpty(configPath)
                         ? new JobCntrlCfg()
-                        : json.LoadObj(File.OpenRead(configPath));
+                        : json.LoadObj(File.OpenRead(configPath)) ?? throw EX.New<JobCntrlConfigException>("Error loading configuration from '{path}'", configPath);
       return base.LoadMasterConfiguration();
     }
 
@@ -37,7 +36,7 @@ namespace Tlabs.JobCntrl.Config {
       public JsonConfigurator() : this(null) { }
 
       ///<summary>Ctor from <paramref name="config"/>.</summary>
-      public JsonConfigurator(IDictionary<string, string> config) {
+      public JsonConfigurator(IDictionary<string, string>? config) {
         this.config= config ?? new Dictionary<string, string>();
       }
 

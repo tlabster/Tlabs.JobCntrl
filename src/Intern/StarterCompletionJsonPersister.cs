@@ -26,8 +26,8 @@ namespace Tlabs.JobCntrl.Intern {
     public StarterCompletionJsonPersister() : this(DEFAULT_PERSISTENCE_PATH, logResObjects: false, append: false) { }
 
     /// <summary>Ctor from <paramref name="persistencePath"/>.</summary>
-    public StarterCompletionJsonPersister(string persistencePath, bool logResObjects, bool append) {
-      var complLogPath= Path.Combine(Path.GetDirectoryName(Tlabs.App.MainEntryPath), persistencePath ?? DEFAULT_PERSISTENCE_PATH);
+    public StarterCompletionJsonPersister(string? persistencePath, bool logResObjects, bool append) {
+      var complLogPath= Path.Combine(Path.GetDirectoryName(Tlabs.App.MainEntryPath)??"", persistencePath ?? DEFAULT_PERSISTENCE_PATH);
       this.complLogDir= new DirectoryInfo(complLogPath);
       this.complLogDir.Create();
       this.complLogDir.Refresh();
@@ -36,10 +36,10 @@ namespace Tlabs.JobCntrl.Intern {
     }
 
     /// <summary>Event fired when a starter completion info has been persisted.</summary>
-    public event Action<IStarterCompletionPersister, Model.Intern.IStarterCompletion, object> CompletionInfoPersisted;
+    public event Action<IStarterCompletionPersister, Model.Intern.IStarterCompletion, object>? CompletionInfoPersisted;
 
     ///<inheritdoc/>
-    public Stream GetLastCompletionInfo(string starterName, out string contentType, out Encoding infoEncoding) {
+    public Stream? GetLastCompletionInfo(string starterName, out string contentType, out Encoding infoEncoding) {
       lock (synchLog) {
         contentType= CONTENT_TYPE;
         infoEncoding= INFO_ENCODING;
@@ -120,21 +120,19 @@ namespace Tlabs.JobCntrl.Intern {
       ///<summary>Append to log property.</summary>
       public const string APPEND= "append";
 
-      readonly string logPath;
+      readonly string? logPath;
       readonly bool append;
       ///<summary>Default ctor.</summary>
       public Configurator() : this(null) { }
 
       ///<summary>Ctor from <paramref name="config"/>.</summary>
-      public Configurator(IDictionary<string, string> config) {
+      public Configurator(IDictionary<string, string>? config) {
         config??= new Dictionary<string, string>();
         if (   config.TryGetValue(LOG_PATH, out logPath)
             && !Path.IsPathRooted(logPath))
           logPath= Path.Combine(App.ContentRoot, logPath);
         if (config.TryGetValue(APPEND, out var val)) {
-#pragma warning disable CA1806  //default for append is false
-          Boolean.TryParse(val, out append);
-#pragma warning restore CA1806
+          if (!Boolean.TryParse(val, out append)) append= false;
         }
       }
 

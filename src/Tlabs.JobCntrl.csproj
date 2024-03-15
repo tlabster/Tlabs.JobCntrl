@@ -1,29 +1,25 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <VersionPrefix>2.1.4</VersionPrefix>
-    <TargetFramework>net6.0</TargetFramework>
+    <VersionPrefix>2.2.1</VersionPrefix>
+    <TargetFramework>net8.0</TargetFramework>
     <OutputType>Library</OutputType>
-    <!--<RuntimeFrameworkVersion>6.0.1</RuntimeFrameworkVersion>-->
+    <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <Description>Background job control runtime and framework.</Description>
     <Authors>Tlabs</Authors>
 
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
-    <AnalysisLevel>6</AnalysisLevel>
-    <AnalysisMode>Recommended</AnalysisMode>
     <AnalysisModeSecurity>All</AnalysisModeSecurity>
     <AnalysisModeNaming>None</AnalysisModeNaming>
-    <!--
-    <AnalysisLevel>6-recommended</AnalysisLevel>
-    -->
   </PropertyGroup>
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/tlabster/tlabs.jobcntrl</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
 
@@ -31,7 +27,7 @@
     <ProjectReference Include="../../Tlabs.Core/src/Tlabs.Core.csproj" />
     <ProjectReference Include="../../Tlabs.Data/src/Tlabs.Data.csproj" />
 
-    <None Include="LICENSE" Pack="true" PackagePath=""/>
+    <None Include="../README.md" Pack="true" PackagePath=""/>
   </ItemGroup>
 
 </Project>
