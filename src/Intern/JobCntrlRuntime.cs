@@ -83,12 +83,12 @@ namespace Tlabs.JobCntrl.Intern {
 
     /// <inheritdoc/>
     public void Stop() {
-      var runCfg= Interlocked.Exchange(ref runtimeConfig, EMPTY_CFG);
+      var runCfg= Interlocked.Exchange(ref runtimeConfig, null);
       if (null != runCfg) lock(runCfg) {
         if (this.started) log.LogInformation("Stopping {name}", GetType().Name);
         this.started= false;
         if (CurrentJobActivationCount > 0) try {
-          log.LogInformation("Waiting for {cnt} pending job avtivations to complete...", CurrentJobActivationCount);
+          log.LogInformation("Waiting for {cnt} pending job activations to complete...", CurrentJobActivationCount);
           FullCompletion.AwaitWithTimeout(2500);
         }
         catch (TimeoutException) { log.LogWarning("Completion of pending job activations timed out."); }
